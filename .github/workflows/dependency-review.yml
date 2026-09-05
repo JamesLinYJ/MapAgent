@@ -1,0 +1,71 @@
+name: Dependency Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Detect dependency graph capability
+        id: dependency-graph
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          response_file="${RUNNER_TEMP}/dependency-graph-response.json"
+          status="$({ curl --silent --show-error \
+            --output "${response_file}" \
+            --write-out '%{http_code}' \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/dependency-graph/sbom"; } || true)"
+
+          if [[ "${status}" == '200' ]]; then
+            echo 'enabled=true' >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          message="$(jq -r '.message // empty' "${response_file}" 2>/dev/null || true)"
+          if [[ "${status}" == '404' ]]; then
+            echo 'enabled=false' >> "${GITHUB_OUTPUT}"
+            echo "::warning::仓库 Dependency Graph/SBOM 接口不可用（HTTP 404）。Dependency Review 已跳过；启用 Dependency Graph 后会自动恢复漏洞门禁。"
+            exit 0
+          fi
+          if [[ "${status}" == '403' \
+            && "${message,,}" == *'dependency graph'* \
+            && "${message,,}" == *'not enabled'* ]]; then
+            echo 'enabled=false' >> "${GITHUB_OUTPUT}"
+            echo "::warning::${message} Dependency Review 已跳过；启用仓库 Dependency Graph 后会自动恢复漏洞门禁。"
+            exit 0
+          fi
+
+          echo "Dependency Graph capability probe failed with HTTP ${status}: ${message}" >&2
+          cat "${response_file}" >&2 || true
+          exit 1
+
+      - name: Review dependency changes
+        if: steps.dependency-graph.outputs.enabled == 'true'
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
+          fail-on-scopes: 'runtime, development'
+          comment-summary-in-pr: always
+
+      - name: Report unavailable dependency review
+        if: steps.dependency-graph.outputs.enabled != 'true'
+        run: echo 'Dependency Graph 未启用或 SBOM 接口不可用；本次没有运行依赖差异漏洞分析。'

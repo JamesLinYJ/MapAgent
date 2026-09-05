@@ -1,0 +1,87 @@
+{
+  "id": "geo-platform-scheduled-wake-up",
+  "name": "ScheduledWakeUp",
+  "version": "1.0.0",
+  "author": "系统内置",
+  "description": "系统定时任务 Provider，分别提供只读查询和受审批的变更能力。",
+  "language": "typescript",
+  "tools": [
+    {
+      "name": "list_scheduled_tasks",
+      "label": "查看定时任务",
+      "description": "读取当前工作区的定时任务及其自动化运行记录。",
+      "group": "system",
+      "tags": ["scheduler", "automation", "system"],
+      "isReadOnly": true,
+      "isDestructive": false,
+      "jsonSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      }
+    },
+    {
+      "name": "ScheduledWakeUp",
+      "label": "管理定时任务",
+      "description": "创建、更新或删除系统定时任务。当前版本支持将自动化流程作为定时目标。",
+      "group": "system",
+      "tags": ["scheduler", "automation", "system"],
+      "isReadOnly": false,
+      "isDestructive": false,
+      "requiresApproval": true,
+      "jsonSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["create", "update", "delete"],
+            "description": "操作类型。"
+          },
+          "taskId": {
+            "type": "string",
+            "description": "更新或删除时的定时任务 ID。"
+          },
+          "targetKind": {
+            "type": "string",
+            "enum": ["automation"],
+            "description": "定时目标类型。当前版本只支持自动化流程。"
+          },
+          "targetId": {
+            "type": "string",
+            "description": "目标自动化流程 ID。"
+          },
+          "title": {
+            "type": "string",
+            "description": "定时任务标题。"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "定时触发时传给目标的提示词。"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "目标参数。"
+          },
+          "cron": {
+            "type": "string",
+            "description": "5 字段 cron：分 时 日 月 周。"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA 时区，例如 Asia/Shanghai。"
+          },
+          "recurring": {
+            "type": "boolean",
+            "description": "是否周期执行。"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "是否启用。"
+          }
+        },
+        "required": ["operation"]
+      }
+    }
+  ]
+}

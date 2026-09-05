@@ -1,0 +1,143 @@
+{
+  "id": "geo-platform-spatial",
+  "name": "空间分析",
+  "version": "2.2.0",
+  "author": "geo-agent-platform",
+  "language": "typescript",
+  "description": "PostGIS 查询、Turf.js 空间分析、图层创建与地图导出",
+  "tools": [
+    {
+      "name": "list_layers",
+      "label": "检索平台图层",
+      "description": "按名称、分类、标签或来源检索平台中已经注册的 PostGIS 图层，不会访问外部数据源；行政边界查询不会返回自动生成的分析矩形。",
+      "group": "空间分析",
+      "tags": ["layer", "postgis", "catalog"],
+      "isReadOnly": true,
+      "isDestructive": false,
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "图层名称、描述或标签关键词，例如“杭州 行政区划”" },
+          "category": { "type": "string", "description": "图层分类过滤" },
+          "sourceType": { "type": "string", "description": "图层来源过滤，例如 system、analysis、upload" },
+          "status": { "type": "string", "description": "图层状态过滤，默认 active" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20, "description": "返回数量上限" }
+        }
+      }
+    },
+    {
+      "name": "query_layer",
+      "label": "查询图层",
+      "description": "从 PostGIS 图层读取真实要素。",
+      "group": "空间分析",
+      "tags": ["postgis", "query"],
+      "isReadOnly": true,
+      "isDestructive": false,
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "layerKey": { "type": "string" },
+          "bbox": { "type": "array" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 1000 },
+          "properties": { "type": "array", "items": { "type": "string" } },
+          "propertyFilter": {
+            "type": "object",
+            "description": "按单个属性的一个或多个精确值筛选；筛选在 limit 之前由 PostGIS 执行。",
+            "properties": {
+              "property": { "type": "string", "description": "属性字段名，例如 name 或 adcode。" },
+              "values": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 50,
+                "items": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }] },
+                "description": "允许匹配的精确属性值；多个值使用 OR 语义。"
+              }
+            },
+            "required": ["property", "values"],
+            "additionalProperties": false
+          },
+          "requireComplete": { "type": "boolean", "description": "为 true 时，若查询结果少于筛选后匹配要素数则硬失败。" }
+        },
+        "required": ["layerKey"]
+      }
+    },
+    {
+      "name": "spatial_analysis",
+      "label": "空间分析",
+      "description": "执行确定性 GIS 空间分析。支持面积、距离、缓冲、相交、合并、路径插值、方位角等操作。",
+      "group": "空间分析",
+      "tags": ["turf", "analysis", "gis"],
+      "isReadOnly": true,
+      "isDestructive": false,
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "operation": { "type": "string", "enum": ["area", "length", "distance", "buffer", "centroid", "bbox", "intersects", "contains", "within", "intersect", "union", "difference", "along", "bearing", "destination", "midpoint", "nearest", "points_within_polygon", "great_circle"], "description": "空间分析操作类型" },
+          "sourceGeojson": {
+            "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "object", "additionalProperties": true }],
+            "description": "主 GeoJSON 输入：优先传前序工具返回的 valueRef ID，也可传用户明确提供的小型内联 GeoJSON。",
+            "x-source": "json-or-value-ref",
+            "x-value-ref-kinds": ["feature_collection", "geojson", "route", "layer"]
+          },
+          "targetGeojson": {
+            "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "object", "additionalProperties": true }],
+            "description": "第二 GeoJSON 输入：优先传前序工具返回的 valueRef ID，也可传用户明确提供的小型内联 GeoJSON。",
+            "x-source": "json-or-value-ref",
+            "x-value-ref-kinds": ["feature_collection", "geojson", "route", "layer"]
+          },
+          "radius": { "type": "number", "minimum": 0, "description": "缓冲半径" },
+          "bearing": { "type": "number", "description": "目标方位角（度）" },
+          "units": { "type": "string", "enum": ["kilometers", "meters", "miles"], "default": "kilometers" },
+          "distance": { "type": "number", "minimum": 0, "description": "沿路径或目标距离" },
+          "steps": { "type": "integer", "minimum": 2, "maximum": 1000, "default": 100 }
+        },
+        "required": ["operation", "sourceGeojson"]
+      }
+    },
+    {
+      "name": "map_export",
+      "label": "导出 GeoJSON 数据",
+      "description": "将 GeoJSON 分析结果保存为可下载、可在平台地图中加载的 artifact；不生成 PNG/JPEG 或带标注的静态图片。",
+      "group": "空间分析",
+      "tags": ["export", "file"],
+      "isReadOnly": false,
+      "isDestructive": false,
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "geojson": {
+            "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "object", "additionalProperties": true }],
+            "description": "要导出的 GeoJSON：优先传前序工具返回的 valueRef ID，也可传小型内联对象。",
+            "x-source": "json-or-value-ref",
+            "x-value-ref-kinds": ["feature_collection", "geojson", "route", "layer"]
+          },
+          "filename": { "type": "string", "description": "导出文件名（不含路径）", "default": "export.geojson" }
+        },
+        "required": ["geojson"]
+      }
+    },
+    {
+      "name": "layer_create",
+      "label": "创建分析图层",
+      "description": "从 GeoJSON 创建归属于当前会话和线程的 PostGIS 分析图层。",
+      "group": "空间分析",
+      "tags": ["layer", "postgis", "visualization"],
+      "isReadOnly": false,
+      "isDestructive": false,
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "geojson": {
+            "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "object", "additionalProperties": true }],
+            "description": "GeoJSON FeatureCollection、Feature 或 Geometry；优先传前序工具返回的 valueRef ID。",
+            "x-source": "json-or-value-ref",
+            "x-value-ref-kinds": ["feature_collection", "geojson", "route", "layer"]
+          },
+          "name": { "type": "string", "description": "图层显示名称" },
+          "description": { "type": "string", "description": "图层描述", "default": "" }
+        },
+        "required": ["geojson", "name"]
+      }
+    }
+  ]
+}

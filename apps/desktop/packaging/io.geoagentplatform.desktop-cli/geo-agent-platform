@@ -1,0 +1,64 @@
+#!/bin/sh
+# +-------------------------------------------------------------------------
+#
+#   地理智能平台 - macOS 安装版命令行启动器
+#
+#   文件:       geo-agent-platform
+#
+#   日期:       2026年09月03日
+#   作者:       JamesLinYJ
+#   协助:       OpenAI Codex:GPT-5.6 Sol
+# --------------------------------------------------------------------------
+
+set -eu
+
+source_path=$0
+while [ -L "$source_path" ]; do
+  source_directory=$(CDPATH= cd -P "$(/usr/bin/dirname "$source_path")" && /bin/pwd)
+  link_target=$(/usr/bin/readlink "$source_path")
+  case "$link_target" in
+    /*) source_path=$link_target ;;
+    *) source_path=$source_directory/$link_target ;;
+  esac
+done
+
+launcher_directory=$(CDPATH= cd -P "$(/usr/bin/dirname "$source_path")" && /bin/pwd)
+resources_directory=$(CDPATH= cd -P "$launcher_directory/.." && /bin/pwd)
+node_runtime=$resources_directory/runtime-service/node-runtime/bin/node
+cli_entry=$resources_directory/runtime-service/apps/operations-console/dist/installedCliEntry.js
+
+if [ ! -x "$node_runtime" ] || [ ! -f "$cli_entry" ]; then
+  echo '安装包中的命令行运行时不完整，请重新安装应用。' >&2
+  exit 70
+fi
+
+# 只传递终端交互所需的非敏感字段。Provider、签名、包管理与系统凭据不会
+# 从宿主环境进入安装版命令行或其后续子进程。NO_COLOR 必须保留“未设置”
+# 与“已设置为空值”的区别；后者按通用约定仍表示禁用颜色。
+if [ "${NO_COLOR+x}" = x ]; then
+  exec /usr/bin/env -i \
+    PATH='/usr/bin:/bin:/usr/sbin:/sbin' \
+    HOME="${HOME-}" \
+    USER="${USER-}" \
+    LOGNAME="${LOGNAME-}" \
+    SHELL="${SHELL-/bin/zsh}" \
+    TERM="${TERM-dumb}" \
+    COLORTERM="${COLORTERM-}" \
+    LANG="${LANG-zh_CN.UTF-8}" \
+    TMPDIR="${TMPDIR-/tmp}" \
+    NO_COLOR="$NO_COLOR" \
+    FORCE_COLOR='0' \
+    "$node_runtime" "$cli_entry" "$@"
+fi
+
+exec /usr/bin/env -i \
+  PATH='/usr/bin:/bin:/usr/sbin:/sbin' \
+  HOME="${HOME-}" \
+  USER="${USER-}" \
+  LOGNAME="${LOGNAME-}" \
+  SHELL="${SHELL-/bin/zsh}" \
+  TERM="${TERM-dumb}" \
+  COLORTERM="${COLORTERM-}" \
+  LANG="${LANG-zh_CN.UTF-8}" \
+  TMPDIR="${TMPDIR-/tmp}" \
+  "$node_runtime" "$cli_entry" "$@"

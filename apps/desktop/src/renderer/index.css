@@ -1,0 +1,335 @@
+/* +-------------------------------------------------------------------------
+ *
+ *   地理智能平台 - Web 全局 Tailwind 基础层
+ *
+ *   文件:       index.css
+ *
+ *   日期:       2026年05月11日
+ *   作者:       JamesLinYJ
+ *   协助:       OpenAI Codex:GPT-5.5
+ * -------------------------------------------------------------------------- */
+
+@import 'tailwindcss';
+
+/* 使用各平台原生 CJK 字体，避免整字库下载、换字布局偏移和 30 MB 安装体积。 */
+@theme {
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', 'Noto Sans SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'SF Mono', 'SFMono-Regular', ui-monospace, 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  --animate-fade-in: fade-in .35s both;
+  --animate-slide-up: slide-up .45s cubic-bezier(.16,1,.3,1) both;
+  --animate-scale-in: scale-in .35s cubic-bezier(.16,1,.3,1) both;
+  --animate-spring: spring .5s cubic-bezier(.16,1,.3,1) both;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply m-0 min-w-80 overflow-x-hidden bg-[#f2f2f7] font-sans text-[#1c1c1e] antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  textarea,
+  input,
+  select {
+    font: inherit;
+  }
+
+  button {
+    touch-action: manipulation;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+
+  :focus-visible {
+    @apply rounded-lg outline-2 outline-offset-4 outline-[#1c1c1e];
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spring {
+  0% {
+    opacity: 0;
+    transform: scale(.9) translateY(8px);
+  }
+  60% {
+    transform: scale(1.02) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dc-startup-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes dc-startup-breathe {
+  0%, 100% { transform: scale(.88); opacity: .62; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+/* 唯一启动壳：入口级同步 CSS，不能依赖懒加载的 AppShell。 */
+.dc-startup {
+  --startup-ink: #142a31;
+  --startup-muted: #637981;
+  --startup-accent: #087f98;
+  box-sizing: border-box;
+  display: grid;
+  min-width: 320px;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  color: var(--startup-ink);
+  background:
+    radial-gradient(circle at 20% 12%, rgb(48 163 179 / 16%), transparent 34%),
+    radial-gradient(circle at 82% 82%, rgb(73 138 112 / 12%), transparent 32%),
+    linear-gradient(145deg, #e9f2f4 0%, #f8fafb 52%, #edf4f5 100%);
+}
+
+.dc-startup,
+.dc-startup * {
+  box-sizing: border-box;
+}
+
+.dc-startup__shell {
+  display: grid;
+  width: min(460px, calc(100vw - 48px));
+  min-height: 410px;
+  justify-items: center;
+  padding: 30px 34px 26px;
+  overflow: hidden;
+  border: 1px solid rgb(184 202 208 / 82%);
+  border-radius: 20px;
+  background:
+    linear-gradient(150deg, rgb(255 255 255 / 96%), rgb(250 253 253 / 88%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 92%),
+    0 26px 70px rgb(30 67 79 / 16%);
+  text-align: center;
+}
+
+.dc-startup__brand {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+}
+
+.dc-startup__brand > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+  color: #fff;
+  background: linear-gradient(145deg, #17343d, #1f7d89);
+  box-shadow: 0 10px 22px rgb(17 91 103 / 20%);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.dc-startup__brand div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.dc-startup__brand strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 720;
+  letter-spacing: -.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-startup__brand small {
+  color: var(--startup-muted);
+  font-size: 10px;
+  letter-spacing: .04em;
+}
+
+.dc-startup__indicator {
+  position: relative;
+  display: grid;
+  width: 74px;
+  height: 74px;
+  margin-top: 48px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(224 243 246 / 82%);
+  box-shadow: inset 0 0 0 1px rgb(67 153 166 / 18%);
+}
+
+.dc-startup__indicator > span {
+  position: absolute;
+  inset: -7px;
+  border: 2px solid rgb(89 168 181 / 24%);
+  border-top-color: var(--startup-accent);
+  border-right-color: var(--startup-accent);
+  border-radius: 50%;
+  animation: dc-startup-orbit .9s linear infinite;
+}
+
+.dc-startup__indicator > i {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--startup-accent);
+  box-shadow: 0 0 0 8px rgb(8 127 152 / 10%);
+  animation: dc-startup-breathe 1.3s ease-in-out infinite;
+}
+
+.dc-startup[data-state='error'] .dc-startup__indicator {
+  background: #fff0f0;
+  box-shadow: inset 0 0 0 1px rgb(185 59 59 / 18%);
+}
+
+.dc-startup[data-state='error'] .dc-startup__indicator > span {
+  inset: 9px 34px;
+  border: 0;
+  border-radius: 999px;
+  background: #b93b3b;
+  animation: none;
+  transform: rotate(45deg);
+}
+
+.dc-startup[data-state='error'] .dc-startup__indicator > span::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  content: '';
+  transform: rotate(90deg);
+}
+
+.dc-startup[data-state='error'] .dc-startup__indicator > i {
+  display: none;
+}
+
+.dc-startup__copy {
+  margin-top: 25px;
+}
+
+.dc-startup__copy h1 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 720;
+  letter-spacing: -.035em;
+}
+
+.dc-startup__copy p {
+  max-width: 360px;
+  margin: 10px 0 0;
+  color: var(--startup-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.dc-startup__error {
+  width: 100%;
+  margin: 18px 0 0;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  border: 1px solid #e4b6b6;
+  border-radius: 8px;
+  color: #8f3030;
+  background: #fff5f5;
+  font-size: 11px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.dc-startup__actions {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.dc-startup__actions button {
+  min-width: 104px;
+  padding: 8px 15px;
+  border: 1px solid var(--startup-accent);
+  border-radius: 7px;
+  color: #fff;
+  background: var(--startup-accent);
+  cursor: pointer;
+}
+
+.dc-startup__actions button.is-secondary {
+  color: var(--startup-accent);
+  border-color: #b8d2d8;
+  background: #fff;
+}
+
+.dc-startup__actions button:hover {
+  filter: brightness(.94);
+}
+
+.dc-startup__status {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  gap: 7px;
+  margin: 28px 0 0;
+  color: #72858c;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.dc-startup__status > span {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #2c9b70;
+}
+
+.dc-startup[data-state='error'] .dc-startup__status > span {
+  background: #b98222;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dc-entry-preview__pulse,
+  .dc-startup__indicator > span,
+  .dc-startup__indicator > i {
+    animation: none;
+  }
+}

@@ -1,0 +1,811 @@
+/* +-------------------------------------------------------------------------
+ *
+ *   地理智能平台 - UI 设计系统：跨页面内容壳、表单与操作
+ *
+ *   文件:       ui-pages.css
+ *
+ *   日期:       2026年08月18日
+ *   作者:       JamesLinYJ
+ *   协助:       OpenAI ChatGPT:GPT-5.6 Pro
+ * -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------
+ * 跨页面内容壳
+ * -------------------------------------------------------------------------- */
+
+.ui-page {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  overflow: auto;
+  padding: clamp(12px, 2vw, 24px);
+  color: var(--ui-text);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(8 127 152 / 0.06), transparent 30rem),
+    linear-gradient(180deg, var(--ui-canvas-soft), var(--ui-canvas));
+}
+
+.ui-page__content {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+}
+
+.ui-page-header {
+  box-sizing: border-box;
+  display: grid;
+  width: min(1180px, 100%);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  margin: 0 auto 16px;
+  padding: 20px 22px;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ui-page-header h1 {
+  margin: 4px 0 6px;
+  color: var(--ui-text);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.ui-page-header p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.ui-page-section,
+.ui-card {
+  box-sizing: border-box;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ui-page-section {
+  padding: 20px;
+}
+
+.ui-page-section--compact {
+  padding: 16px 18px;
+}
+
+:where(
+  .model-settings.ui-page,
+  .account-page.ui-page,
+  .legal-page.ui-page,
+  .dc-security-page.ui-page,
+  .debug-shell.ui-page,
+  .tool-management.ui-page
+) {
+  min-height: 100%;
+  padding: clamp(12px, 2vw, 24px);
+  color: var(--ui-text);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(8 127 152 / 0.06), transparent 30rem),
+    linear-gradient(180deg, var(--ui-canvas-soft), var(--ui-canvas));
+}
+
+.model-settings__hero.ui-page-header {
+  grid-template-columns: auto minmax(0, 1fr) minmax(180px, auto);
+  padding: 20px 22px;
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+}
+
+.model-settings__hero.ui-page-header h1,
+.account-hero.ui-page-header h1,
+.legal-hero.ui-page-header h1,
+.dc-security-header.ui-page-header h1,
+.debug-shell__header.ui-page-header h1,
+.tool-management__hero.ui-page-header h1 {
+  margin: 4px 0 6px;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.model-settings__hero.ui-page-header p,
+.account-hero.ui-page-header p,
+.legal-hero.ui-page-header p,
+.debug-shell__header.ui-page-header p,
+.tool-management__hero.ui-page-header p {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.model-settings__hero-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--ui-radius-md);
+}
+
+.model-settings__summary {
+  min-width: 180px;
+  padding: 11px 13px;
+  border-radius: var(--ui-radius-md);
+}
+
+.model-settings__section.ui-page-section,
+.model-settings__identity.ui-page-section {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+.model-settings__section.ui-page-section {
+  margin-top: 16px;
+  padding: 20px;
+}
+
+.model-settings__identity.ui-page-section {
+  margin-top: 12px;
+  padding: 16px 18px;
+}
+
+.model-settings__provider-card.ui-card {
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+}
+
+.account-hero.ui-page-header,
+.legal-hero.ui-page-header,
+.dc-security-header.ui-page-header,
+.debug-shell__header.ui-page-header,
+.tool-management__hero.ui-page-header {
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.account-grid {
+  gap: 12px;
+  padding-top: 0;
+}
+
+.account-panel.ui-card,
+.legal-toc.ui-card {
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+.account-panel.ui-card {
+  padding: 18px;
+}
+
+.account-panel__head > span,
+.model-settings__identity-icon,
+.tool-management__hero-icon,
+.tool-management__overview-icon {
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-accent-hover);
+  border-color: var(--ui-border);
+  background: var(--ui-accent-soft);
+  box-shadow: none;
+}
+
+.legal-hero.ui-page-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  flex-direction: initial;
+}
+
+.legal-actions {
+  justify-content: flex-end;
+}
+
+.legal-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+}
+
+.legal-toc.ui-card {
+  margin: 0 0 16px;
+  padding: 12px;
+}
+
+.legal-section.ui-page-section {
+  padding: 20px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+}
+
+.dc-security-shell.ui-page__content {
+  display: flex;
+  max-width: none;
+  gap: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.dc-security-header.ui-page-header {
+  width: 100%;
+  margin: 0;
+}
+
+.dc-security-tabs {
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+}
+
+.dc-security-tabs button,
+.dc-security-tabs button.is-active {
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--ui-text-muted);
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  box-shadow: none;
+}
+
+.dc-security-tabs button.is-active {
+  color: var(--ui-accent-hover);
+  border-color: rgb(8 127 152 / 0.26);
+  background: var(--ui-accent-soft);
+  box-shadow: inset 3px 0 0 var(--ui-accent);
+}
+
+.dc-security-table-wrap {
+  border-color: var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+}
+
+.debug-shell__header.ui-page-header,
+.debug-overview,
+.debug-columns {
+  width: min(1180px, 100%);
+  max-width: 1180px;
+}
+
+.overview-card.ui-card,
+.debug-shell .panel {
+  border-color: var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.tool-management.ui-page {
+  gap: 16px;
+}
+
+.tool-management.ui-page > :where(
+  .tool-management__hero,
+  .tool-management__tabs,
+  .tool-management__overview,
+  .tool-management__grid,
+  .tool-management__detail
+) {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+}
+
+.tool-management__hero.ui-page-header {
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 440px);
+  gap: 20px;
+  padding: 20px 22px;
+}
+
+.tool-management__hero-copy {
+  gap: 12px;
+}
+
+.tool-management__hero-icon {
+  width: 44px;
+  height: 44px;
+}
+
+.tool-management__top-actions,
+.tool-doc-grid {
+  width: 100%;
+}
+
+.tool-management__tabs {
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+.tool-management-tab {
+  min-width: 112px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: var(--ui-radius-sm);
+}
+
+.tool-management-tab:hover:not(:disabled),
+.tool-management-tab--active {
+  transform: none;
+  border-color: rgb(8 127 152 / 0.26);
+  background: var(--ui-accent-soft);
+  box-shadow: inset 3px 0 0 var(--ui-accent);
+}
+
+.tool-management__overview-card.ui-card {
+  min-height: 76px;
+  padding: 12px 14px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+.tool-management__sidebar.ui-card {
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+.tool-management__detail .panel.ui-page-section,
+.usage-panel.ui-page-section {
+  padding: 0;
+  border-color: var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+.tool-management__schema-column {
+  border-radius: var(--ui-radius-md);
+  border-color: var(--ui-border);
+  background: var(--ui-surface-muted);
+  box-shadow: none;
+}
+
+:where(
+  .model-settings__hero,
+  .model-settings__section,
+  .model-settings__identity,
+  .account-hero,
+  .account-panel,
+  .dc-security-shell,
+  .dc-security-header,
+  .debug-shell__header,
+  .tool-management__hero,
+  .tool-management__sidebar,
+  .tool-management__detail .panel,
+  .automation-management,
+  .runtime-config-agent,
+  .gf-system-logs__panel
+) {
+  color: var(--ui-text);
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:where(
+  .model-settings__hero,
+  .model-settings__section,
+  .model-settings__identity,
+  .account-hero,
+  .account-panel,
+  .dc-security-shell,
+  .debug-shell__header,
+  .tool-management__hero,
+  .tool-management__sidebar,
+  .tool-management__detail .panel,
+  .automation-management,
+  .runtime-config-agent
+) {
+  border-radius: var(--ui-radius-lg);
+}
+
+:where(
+  .model-settings__hero h1,
+  .model-settings__section h2,
+  .model-settings__identity h2,
+  .account-hero h1,
+  .account-panel h2,
+  .dc-security-header h1,
+  .debug-shell__header h1,
+  .tool-management h1,
+  .tool-management h2,
+  .panel__title
+) {
+  color: var(--ui-text);
+}
+
+:where(
+  .model-settings__hero p,
+  .model-settings__section-heading p,
+  .model-settings__identity p,
+  .account-hero p,
+  .account-copy,
+  .account-muted,
+  .debug-shell__header p,
+  .panel__subtitle,
+  .panel__muted,
+  .overview-card__label
+) {
+  color: var(--ui-text-muted);
+}
+
+:where(
+  .model-settings__eyebrow,
+  .account-eyebrow,
+  .dc-card__eyebrow,
+  .panel__eyebrow
+) {
+  color: var(--ui-accent);
+  font-weight: 720;
+  letter-spacing: 0.1em;
+}
+
+.model-settings__summary,
+.account-workspace,
+.account-list__item,
+.account-pills span,
+.model-settings__provider-icon,
+.model-settings__identity-icon,
+.model-settings__hero-icon {
+  color: var(--ui-accent-hover);
+  border-color: var(--ui-border);
+  background: var(--ui-accent-soft);
+}
+
+.model-settings__provider,
+.model-settings__model-list button,
+.model-settings__custom-list article,
+.model-settings__custom-form,
+.tool-management-tab,
+.tool-card,
+.tool-provider-row,
+.tool-management__schema-column,
+.tool-mini-app__step,
+.tool-mini-app__automation-step,
+.tool-mini-app__state,
+.tool-mini-app__contract,
+.tool-mini-result,
+.account-link-list button {
+  color: var(--ui-text);
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+.model-settings__provider:hover:not(:disabled),
+.model-settings__model-list button:hover:not(:disabled),
+.model-settings__custom-list article:hover,
+.tool-management-tab:hover:not(:disabled),
+.tool-card:hover:not(:disabled),
+.account-link-list button:hover:not(:disabled) {
+  transform: none;
+  color: var(--ui-accent-hover);
+  border-color: var(--ui-border-strong);
+  background: var(--ui-accent-soft);
+  box-shadow: none;
+}
+
+.model-settings__provider.is-active,
+.model-settings__model-list button.is-active,
+.tool-management-tab--active,
+.tool-card--active,
+.dc-security-tabs button.is-active {
+  color: var(--ui-accent-hover);
+  border-color: rgb(8 127 152 / 0.38);
+  background: var(--ui-accent-soft);
+  box-shadow: inset 3px 0 0 var(--ui-accent);
+}
+
+.tool-management__hero,
+.tool-management__sidebar {
+  /* 旧 LiquidGlassSurface 调用继续工作，但页面内容不再使用折射。 */
+  --ui-glass-filter: none;
+  --liquid-filter: none;
+}
+
+.tool-management__hero::before,
+.tool-management__hero::after,
+.tool-management__sidebar::before,
+.tool-management__sidebar::after {
+  display: none;
+}
+
+.tool-management__overview-card,
+.overview-card {
+  color: var(--ui-text);
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.overview-card__value {
+  color: var(--ui-text);
+}
+
+.tool-card__status,
+.tool-card__status--ready {
+  background: var(--ui-text-subtle);
+  box-shadow: 0 0 0 3px rgb(96 116 125 / 0.12);
+}
+
+.tool-card__status--ready {
+  background: var(--ui-success);
+  box-shadow: 0 0 0 3px rgb(33 134 91 / 0.12);
+}
+
+/* -------------------------------------------------------------------------
+ * 表单与操作
+ * -------------------------------------------------------------------------- */
+
+#root :where(
+  .model-settings,
+  .account-page,
+  .dc-security-page,
+  .debug-shell,
+  .tool-management,
+  .gf-system-logs,
+  .cc-panel
+) :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+  min-height: 36px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  box-shadow: inset 0 1px 2px rgb(28 57 68 / 0.04);
+  transition:
+    border-color var(--ui-motion-fast) var(--ui-ease),
+    box-shadow var(--ui-motion-fast) var(--ui-ease),
+    background-color var(--ui-motion-fast) var(--ui-ease);
+}
+
+#root :where(
+  .model-settings,
+  .account-page,
+  .dc-security-page,
+  .debug-shell,
+  .tool-management,
+  .gf-system-logs,
+  .cc-panel
+) :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select):hover:not(:disabled) {
+  border-color: var(--ui-border-strong);
+}
+
+#root :where(
+  .model-settings,
+  .account-page,
+  .dc-security-page,
+  .debug-shell,
+  .tool-management,
+  .gf-system-logs,
+  .cc-panel
+) :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select):focus {
+  border-color: var(--ui-accent);
+  outline: 0;
+  background: var(--ui-surface);
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+}
+
+:where(
+  .dc-action-button,
+  .account-action,
+  .model-settings__custom-add,
+  .model-settings__custom-actions button,
+  .model-settings__custom-submit button,
+  .dc-security-page button,
+  .gf-system-logs__actions button,
+  .ui-dialog-actions button
+) {
+  min-height: 34px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  box-shadow: none;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease),
+    border-color var(--ui-motion-fast) var(--ui-ease),
+    background-color var(--ui-motion-fast) var(--ui-ease),
+    transform var(--ui-motion-fast) var(--ui-ease);
+}
+
+:where(
+  .dc-action-button,
+  .account-action,
+  .model-settings__custom-add,
+  .model-settings__custom-actions button,
+  .model-settings__custom-submit button,
+  .dc-security-page button,
+  .gf-system-logs__actions button,
+  .ui-dialog-actions button
+):hover:not(:disabled) {
+  color: var(--ui-accent-hover);
+  border-color: var(--ui-border-strong);
+  background: var(--ui-accent-soft);
+}
+
+:where(
+  .dc-action-button,
+  .account-action,
+  .model-settings__custom-add,
+  .model-settings__custom-actions button,
+  .model-settings__custom-submit button,
+  .dc-security-page button,
+  .gf-system-logs__actions button,
+  .ui-dialog-actions button
+):active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.account-action--danger,
+.model-settings__custom-actions button.is-danger {
+  color: var(--ui-danger);
+  border-color: rgb(176 68 68 / 0.28);
+  background: var(--ui-danger-soft);
+}
+
+.account-action--ghost {
+  color: var(--ui-text-muted);
+  border-color: var(--ui-border);
+  background: transparent;
+  box-shadow: none;
+}
+
+.account-action--ghost:hover:not(:disabled) {
+  color: var(--ui-accent-hover);
+  border-color: rgb(8 127 152 / 0.22);
+  background: var(--ui-accent-soft);
+}
+
+.account-action--danger:hover:not(:disabled),
+.model-settings__custom-actions button.is-danger:hover:not(:disabled) {
+  color: #8e3030;
+  border-color: rgb(176 68 68 / 0.5);
+  background: #ffe5e3;
+}
+
+.dc-action-button,
+.ui-dialog-actions :where(.primary, .is-primary, [data-variant="primary"]) {
+  color: var(--ui-accent-contrast);
+  border-color: var(--ui-accent);
+  background: var(--ui-accent);
+}
+
+.dc-action-button:hover:not(:disabled),
+.ui-dialog-actions :where(.primary, .is-primary, [data-variant="primary"]):hover:not(:disabled) {
+  color: var(--ui-accent-contrast);
+  border-color: var(--ui-accent-hover);
+  background: var(--ui-accent-hover);
+}
+
+.legal-actions button:hover:not(:disabled) {
+  color: var(--ui-accent-hover);
+  border-color: var(--ui-border-strong);
+  background: var(--ui-accent-soft);
+}
+
+@media (max-width: 900px) {
+  .ui-page-header,
+  .model-settings__hero.ui-page-header,
+  .legal-hero.ui-page-header,
+  .tool-management__hero.ui-page-header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .model-settings__hero-icon {
+    display: none;
+  }
+
+  .model-settings__summary,
+  .tool-management__top-actions {
+    width: 100%;
+  }
+
+  .account-grid,
+  .model-settings__provider-grid,
+  .tool-management__overview,
+  .tool-provider-list,
+  .tool-schema-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account-hero__actions,
+  .legal-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .ui-page {
+    padding: 12px;
+  }
+
+  .ui-page-header,
+  .model-settings__hero.ui-page-header,
+  .account-hero.ui-page-header,
+  .legal-hero.ui-page-header,
+  .dc-security-header.ui-page-header,
+  .debug-shell__header.ui-page-header,
+  .tool-management__hero.ui-page-header {
+    padding: 16px;
+  }
+
+  .ui-page-header h1,
+  .model-settings__hero.ui-page-header h1,
+  .account-hero.ui-page-header h1,
+  .legal-hero.ui-page-header h1,
+  .dc-security-header.ui-page-header h1,
+  .debug-shell__header.ui-page-header h1,
+  .tool-management__hero.ui-page-header h1 {
+    font-size: 24px;
+  }
+
+  .model-settings__section.ui-page-section,
+  .legal-section.ui-page-section,
+  .account-panel.ui-card {
+    padding: 16px;
+  }
+
+  .model-settings__identity.ui-page-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .model-settings__identity-icon {
+    display: none;
+  }
+
+  .model-settings__identity button,
+  .account-hero__actions > *,
+  .legal-actions > * {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-page :where(button, a, input, select, textarea) {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+  }
+
+  .ui-page :where(button, a):hover {
+    transform: none;
+  }
+}

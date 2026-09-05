@@ -1,0 +1,78 @@
+{
+  "name": "geo-agent-platform",
+  "private": true,
+  "version": "0.1.5",
+  "engines": {
+    "node": "^22.13.0 || >=24.0.0"
+  },
+  "workspaces": [
+    "apps/server",
+    "apps/desktop",
+    "apps/operations-console",
+    "packages/db",
+    "packages/shared-types",
+    "packages/conversation-presentation",
+    "packages/operations-supervisor"
+  ],
+  "//": "Python worker only hosts packages/gis-meteorology scientific execution.",
+  "scripts": {
+    "dev": "bash ./dev.sh",
+    "dev:windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1 start",
+    "dev:windows:status": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1 status",
+    "dev:windows:stop": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1 stop",
+    "console:windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1 console",
+    "agent": "bash ./dev.sh agent",
+    "agent:windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1 agent",
+    "desktop": "bash ./dev.sh desktop",
+    "desktop:windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1 desktop",
+    "build": "npm run build --workspace @geo-agent-platform/db && npm run build --workspace @geo-agent-platform/shared-types && npm run build --workspace @geo-agent-platform/conversation-presentation && npm run build --workspace @geo-agent-platform/operations-supervisor && npm run build --workspace geo-agent-server && npm run build --workspace @geo-agent-platform/operations-console && npm run build --workspace @geo-agent-platform/desktop",
+    "build:presentation": "npm run build --workspace @geo-agent-platform/conversation-presentation",
+    "build:supervisor": "npm run build --workspace @geo-agent-platform/operations-supervisor",
+    "build:server": "npm run build --workspace geo-agent-server",
+    "build:desktop": "npm run build --workspace @geo-agent-platform/shared-types && npm run build --workspace @geo-agent-platform/conversation-presentation && npm run build --workspace @geo-agent-platform/operations-supervisor && npm run build --workspace @geo-agent-platform/desktop",
+    "test": "npm run build --workspace @geo-agent-platform/db && npm run test --workspace @geo-agent-platform/db && npm run build --workspace @geo-agent-platform/shared-types && npm run test --workspace @geo-agent-platform/shared-types && npm run build --workspace @geo-agent-platform/conversation-presentation && npm run test --workspace @geo-agent-platform/conversation-presentation && npm run build --workspace @geo-agent-platform/operations-supervisor && npm run test --workspace @geo-agent-platform/operations-supervisor && npm run test --workspace geo-agent-server && npm run test --workspace @geo-agent-platform/operations-console && npm run test --workspace @geo-agent-platform/desktop && npm run test:runtime-release && node --test scripts/dependency-contract.test.mjs",
+    "test:presentation": "npm run test --workspace @geo-agent-platform/conversation-presentation",
+    "test:supervisor": "npm run test --workspace @geo-agent-platform/operations-supervisor",
+    "test:server": "npm run test --workspace geo-agent-server",
+    "test:postgis": "node scripts/run-postgis-integration.mjs",
+    "test:runtime-release": "node --test scripts/runtime-service-artifact.test.mjs",
+    "test:release-pipeline": "node --test scripts/release-pipeline.test.mjs",
+    "test:desktop": "npm run test --workspace @geo-agent-platform/desktop",
+    "test:e2e": "npm run build --workspace @geo-agent-platform/shared-types && npm run build --workspace @geo-agent-platform/conversation-presentation && npm run build --workspace @geo-agent-platform/operations-supervisor && npm run build --workspace @geo-agent-platform/desktop && playwright test",
+    "test:e2e:headed": "npm run test:e2e -- --headed",
+    "lint:desktop": "npm run lint --workspace @geo-agent-platform/desktop",
+    "lint:terminology": "node scripts/check-meteorology-terminology.mjs",
+    "generate:glass": "node scripts/generate-liquid-glass-maps.mjs",
+    "check:bundle": "node scripts/check-desktop-bundle-budget.mjs",
+    "check:deadcode": "knip --no-progress",
+    "release:runtime": "node scripts/create-runtime-service-artifact.mjs --build",
+    "release:runtime:macos:arm64": "node scripts/create-runtime-service-artifact.mjs --build --force --materialize-darwin",
+    "release:runtime:linux": "node scripts/create-runtime-service-artifact.mjs --build --force --materialize-linux",
+    "verify:runtime": "node scripts/verify-runtime-service-artifact.mjs",
+    "apply:repository-governance": "node scripts/apply-repository-governance.mjs",
+    "migrate:file-lifecycle": "node scripts/migrate-runtime-file-metadata.mjs",
+    "reset:conversations": "node scripts/reset-conversation-store.mjs --confirm"
+  },
+  "dependencies": {
+    "@better-auth/core": "1.6.29",
+    "@better-auth/electron": "1.6.29",
+    "@openai/agents": "0.17.0",
+    "better-auth": "1.6.29",
+    "openai": "7.4.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@testcontainers/postgresql": "^12.1.0",
+    "dotenv": "17.4.2",
+    "knip": "6.33.0"
+  },
+  "overrides": {
+    "zod": "4.4.3"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "electron@43.4.0": true,
+    "electron-winstaller@5.4.4": true
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@geo-agent-platform/operations-console",
+  "private": true,
+  "version": "0.1.4",
+  "type": "module",
+  "scripts": {
+    "build": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
+    "console": "tsx src/localConsoleEntry.ts",
+    "agent": "tsx src/agent/cli/localAgentConsoleEntry.ts",
+    "test": "vitest run src",
+    "test:watch": "vitest src"
+  },
+  "dependencies": {
+    "@geo-agent-platform/conversation-presentation": "file:../../packages/conversation-presentation",
+    "@geo-agent-platform/operations-supervisor": "file:../../packages/operations-supervisor",
+    "@geo-agent-platform/shared-types": "file:../../packages/shared-types",
+    "@inkjs/ui": "2.0.0",
+    "dotenv": "17.4.2",
+    "ink": "7.1.1",
+    "markdansi": "0.3.3",
+    "react": "19.2.8",
+    "string-width": "8.2.2",
+    "wrap-ansi": "10.0.0",
+    "ws": "8.21.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "ink-testing-library": "4.0.0",
+    "tsx": "^4.23.12",
+    "typescript": "~7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

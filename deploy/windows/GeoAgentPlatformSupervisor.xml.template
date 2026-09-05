@@ -1,0 +1,12 @@
+<service>
+  <id>GeoAgentPlatformSupervisor</id>
+  <name>Geo Agent Platform Supervisor</name>
+  <description>Supervises the API, worker and native PostgreSQL/PostGIS infrastructure through the local TypeScript control plane.</description>
+  <executable>@@PWSH_EXECUTABLE@@</executable>
+  <arguments>-NoProfile -NonInteractive -File "@@GEO_AGENT_PLATFORM_ROOT@@\scripts\run-windows-service.ps1" -Component Supervisor -EnvironmentFile "@@SERVICE_ENV_FILE@@"</arguments>
+  <workingdirectory>@@GEO_AGENT_PLATFORM_ROOT@@</workingdirectory>
+  <startmode>Automatic</startmode>
+  <stoptimeout>120sec</stoptimeout>
+  <onfailure action="restart" delay="5 sec" />
+  <log mode="roll-by-size-time"><sizeThreshold>10240</sizeThreshold><pattern>yyyyMMdd</pattern><autoRollAtTime>00:00:00</autoRollAtTime><zipOlderThanNumDays>7</zipOlderThanNumDays></log>
+</service>

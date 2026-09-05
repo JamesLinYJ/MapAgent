@@ -1,0 +1,37 @@
+{
+  "id": "geo-platform-media",
+  "name": "媒体工具",
+  "version": "1.0.0",
+  "author": "geo-agent-platform",
+  "language": "typescript",
+  "description": "通过 Azure Speech SDK 提供语音合成能力",
+  "requires": {
+    "AZURE_SPEECH_KEY": "required"
+  },
+  "tools": [
+    {
+      "name": "text_to_speech",
+      "label": "文本转语音",
+      "description": "将文本合成为语音音频 artifact。",
+      "group": "媒体",
+      "tags": ["media", "speech", "tts"],
+      "isReadOnly": false,
+      "isDestructive": false,
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "要合成语音的正文。"
+          },
+          "voice": {
+            "type": "string",
+            "description": "可选 Azure Speech 音色名称，例如 zh-CN-XiaoxiaoNeural。"
+          }
+        },
+        "required": ["text"]
+      }
+    }
+  ]
+}

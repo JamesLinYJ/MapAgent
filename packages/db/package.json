@@ -1,0 +1,27 @@
+{
+  "name": "@geo-agent-platform/db",
+  "private": true,
+  "version": "0.1.4",
+  "type": "module",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
+    "./schema": { "types": "./dist/schema.d.ts", "import": "./dist/schema.js", "default": "./dist/schema.js" },
+    "./connection": { "types": "./dist/connection.d.ts", "import": "./dist/connection.js", "default": "./dist/connection.js" }
+  },
+  "scripts": {
+    "build": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "build:dev": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run src"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/pg": "^8.21.0",
+    "typescript": "~7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

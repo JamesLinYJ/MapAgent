@@ -1,0 +1,21 @@
+[Unit]
+Description=Geo Agent Platform local runtime
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=%E/geo-agent-platform/runtime.env
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/lib/geo-agent-platform-desktop/resources/runtime-service
+EnvironmentFile=%E/geo-agent-platform/runtime.env
+ExecStart=/usr/lib/geo-agent-platform-desktop/resources/runtime-service/node-runtime/bin/node /usr/lib/geo-agent-platform-desktop/resources/runtime-service/packages/operations-supervisor/dist/cli.js daemon --root /usr/lib/geo-agent-platform-desktop/resources/runtime-service --profile production
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=120
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

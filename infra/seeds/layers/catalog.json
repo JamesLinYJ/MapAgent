@@ -1,0 +1,16 @@
+{
+  "layers": [
+    {
+      "layer_key": "hangzhou_districts",
+      "name": "杭州市行政区划",
+      "filename": "hangzhou_districts.geojson",
+      "source_type": "system",
+      "geometry_type": "MultiPolygon",
+      "srid": 4326,
+      "category": "boundary",
+      "tags": ["杭州", "杭州市", "行政区划", "区县", "边界", "气象区划"],
+      "description": "系统内置杭州市 13 个区县行政边界，用于短时强降水风险区划、区域累计面雨量统计和杭州短时临近预报（短临）范围分析。"
+    }
+  ]
+}
+

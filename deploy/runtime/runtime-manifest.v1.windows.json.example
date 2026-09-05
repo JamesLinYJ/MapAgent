@@ -1,0 +1,9 @@
+{
+  "kind": "geo-agent-platform.desktop-runtime",
+  "schemaVersion": 1,
+  "projectRoot": "C:\\Program Files\\GeoAgentPlatform\\services\\0.1.0",
+  "runtimeRoot": "C:\\ProgramData\\GeoAgentPlatform\\runtime",
+  "apiBaseUrl": "http://127.0.0.1:8000",
+  "supervisorTokenFile": "C:\\ProgramData\\GeoAgentPlatform\\runtime\\secrets\\supervisor.token",
+  "allowedEnvironmentOverrides": []
+}

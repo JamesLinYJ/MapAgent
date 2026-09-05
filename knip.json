@@ -1,0 +1,57 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "exclude": [
+    "duplicates"
+  ],
+  "ignore": [
+    "packages/gis-meteorology/src/gis_meteorology/third_party/**",
+    "scripts/validate-production-environment.mjs"
+  ],
+  "ignoreBinaries": [
+    "pwsh"
+  ],
+  "ignoreDependencies": [
+    "@better-auth/core",
+    "@better-auth/electron",
+    "@openai/agents",
+    "better-auth",
+    "openai"
+  ],
+  "ignoreIssues": {
+    "apps/desktop/packaging/desktopPortablePayload.mjs": [
+      "exports"
+    ]
+  },
+  "workspaces": {
+    "apps/desktop": {
+      "entry": [
+        "forge.config.mjs"
+      ],
+      "ignoreDependencies": [
+        "@electron-forge/maker-squirrel",
+        "@electron-forge/plugin-fuses",
+        "@electron/windows-sign"
+      ]
+    },
+    "apps/operations-console": {
+      "entry": [
+        "src/installedCliEntry.ts"
+      ]
+    },
+    "packages/operations-supervisor": {
+      "ignoreDependencies": [
+        "supports-color"
+      ]
+    },
+    "apps/server": {
+      "entry": [
+        "src/operations/localOperationsBrokerEntry.ts"
+      ]
+    },
+    "demo/tool-provider-demo": {
+      "entry": [
+        "src/index.ts"
+      ]
+    }
+  }
+}

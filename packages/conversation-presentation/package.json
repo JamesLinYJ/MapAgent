@@ -1,0 +1,29 @@
+{
+  "name": "@geo-agent-platform/conversation-presentation",
+  "private": true,
+  "version": "0.1.4",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
+    "build:dev": "tsc -p tsconfig.json",
+    "test": "vitest run src",
+    "bench": "vitest bench src"
+  },
+  "dependencies": {
+    "@geo-agent-platform/shared-types": "file:../shared-types"
+  },
+  "devDependencies": {
+    "typescript": "~7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

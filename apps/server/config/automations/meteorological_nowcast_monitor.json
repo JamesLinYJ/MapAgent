@@ -1,0 +1,60 @@
+{
+  "automationId": "meteorological_nowcast_monitor",
+  "name": "气象短临监测",
+  "description": "按确定性工具链建立文件序列、校验时次并分析降水趋势，最后生成中文结论。",
+  "version": "3.7.0",
+  "revision": 8,
+  "enabled": true,
+  "agentInvocation": {
+    "enabled": true,
+    "description": "当用户基于当前线程上传的连续气象文件询问未来三小时降水、是否下雨或短时临近预报趋势时，执行确定性的短临分析并直接交付结论。",
+    "examples": [
+      "分析刚上传的气象文件，未来三小时会不会下雨？",
+      "基于这一批连续时次数据给出三小时短临降水趋势。",
+      "接下来三小时降水是否增强？"
+    ],
+    "requirements": [
+      {
+        "resource": "meteorological_files",
+        "scope": "thread",
+        "minimumCount": 2,
+        "readyOnly": true
+      }
+    ]
+  },
+  "parametersSchema": {
+    "type": "object",
+    "properties": {
+      "horizonMinutes": { "type": "integer", "minimum": 5, "maximum": 360, "description": "需要分析的预报时效（分钟）。" }
+    },
+    "required": ["horizonMinutes"],
+    "additionalProperties": false
+  },
+  "defaultParameters": { "horizonMinutes": 180 },
+  "requiredTools": ["answer_nowcast_question", "create_nowcast_sequence", "inspect_nowcast_sequence", "list_meteorological_files", "meteorological_precipitation_nowcast"],
+  "requiresApproval": false,
+  "timeoutSeconds": 1200,
+  "outputType": "conversation",
+  "graph": {
+    "schemaVersion": 1,
+    "entryNodeId": "trigger",
+    "viewport": { "x": 0, "y": 0, "zoom": 0.85 },
+    "nodes": [
+      { "nodeId": "trigger", "type": "trigger", "label": "监测触发", "description": "接收短临监测目标。", "position": { "x": 20, "y": 120 }, "config": {} },
+      { "nodeId": "list_files", "type": "tool", "label": "列出气象文件", "description": "取得当前线程真实文件集合。", "position": { "x": 280, "y": 120 }, "config": { "toolName": "list_meteorological_files", "arguments": { "scope": { "source": "literal", "value": "thread" } }, "approvalMode": "auto", "retry": { "maxAttempts": 2, "backoffSeconds": 2 } } },
+      { "nodeId": "create_sequence", "type": "tool", "label": "创建短临序列", "description": "按用户指定时效从文件集合建立连续时次序列。", "position": { "x": 560, "y": 120 }, "config": { "toolName": "create_nowcast_sequence", "arguments": { "file_collection_ref": { "source": "value_ref", "nodeId": "list_files", "kind": "meteorological_file_collection", "path": "refId" }, "horizon_minutes": { "source": "input", "path": "parameters.horizonMinutes" } }, "approvalMode": "auto", "retry": { "maxAttempts": 2, "backoffSeconds": 2 } } },
+      { "nodeId": "inspect_sequence", "type": "tool", "label": "校验短临序列", "description": "验证时次、变量和文件可读性。", "position": { "x": 850, "y": 120 }, "config": { "toolName": "inspect_nowcast_sequence", "arguments": { "sequence_ref": { "source": "value_ref", "nodeId": "create_sequence", "kind": "nowcast_sequence", "path": "refId" } }, "approvalMode": "auto", "retry": { "maxAttempts": 1, "backoffSeconds": 0 } } },
+      { "nodeId": "nowcast", "type": "tool", "label": "降水短临分析", "description": "按气象序列自身覆盖范围计算每个时次的降水统计事实。", "position": { "x": 1140, "y": 120 }, "config": { "toolName": "meteorological_precipitation_nowcast", "arguments": { "sequence_ref": { "source": "value_ref", "nodeId": "create_sequence", "kind": "nowcast_sequence", "path": "refId" } }, "approvalMode": "auto", "retry": { "maxAttempts": 1, "backoffSeconds": 0 } } },
+      { "nodeId": "answer", "type": "tool", "label": "生成短临结论", "description": "只依据短临分析事实回答用户问题并生成代表时次地图。", "position": { "x": 1430, "y": 120 }, "config": { "toolName": "answer_nowcast_question", "arguments": { "nowcast_analysis_ref": { "source": "value_ref", "nodeId": "nowcast", "kind": "nowcast_analysis", "path": "refId" }, "question": { "source": "input", "path": "prompt" } }, "approvalMode": "auto", "retry": { "maxAttempts": 1, "backoffSeconds": 0 } } },
+      { "nodeId": "output", "type": "output", "label": "监测结论", "description": "输出结论、短临事实与范围警告。", "position": { "x": 1750, "y": 120 }, "config": { "outputs": { "answer": { "source": "node", "nodeId": "answer", "path": "payload.answer" }, "analysis": { "source": "node", "nodeId": "nowcast", "path": "payload" }, "warnings": { "source": "node", "nodeId": "nowcast", "path": "payload.warnings" } } } }
+    ],
+    "edges": [
+      { "edgeId": "trigger-list", "sourceNodeId": "trigger", "targetNodeId": "list_files", "sourcePort": "default" },
+      { "edgeId": "list-create", "sourceNodeId": "list_files", "targetNodeId": "create_sequence", "sourcePort": "success" },
+      { "edgeId": "create-inspect", "sourceNodeId": "create_sequence", "targetNodeId": "inspect_sequence", "sourcePort": "success" },
+      { "edgeId": "inspect-nowcast", "sourceNodeId": "inspect_sequence", "targetNodeId": "nowcast", "sourcePort": "success" },
+      { "edgeId": "nowcast-answer", "sourceNodeId": "nowcast", "targetNodeId": "answer", "sourcePort": "success" },
+      { "edgeId": "answer-output", "sourceNodeId": "answer", "targetNodeId": "output", "sourcePort": "success" }
+    ]
+  }
+}

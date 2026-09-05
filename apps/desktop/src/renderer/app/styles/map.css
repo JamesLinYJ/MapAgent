@@ -1,0 +1,386 @@
+/* +-------------------------------------------------------------------------
+ *
+ *   地理智能平台 - 地图画布与控件样式
+ *
+ *   文件:       map.css
+ *
+ *   日期:       2026年06月26日
+ *   作者:       JamesLinYJ
+ *   协助:       OpenAI Codex:GPT-5.5
+ * -------------------------------------------------------------------------- */
+
+/* Map canvas, HUD, controls, legend, and popup styles. */
+
+@reference "tailwindcss";
+
+.dc-map-stage__canvas,
+.dc-map-stage__canvas .maplibregl-map {
+  @apply absolute inset-0 z-[2] size-full;
+  pointer-events: auto;
+}
+
+.dc-map-stage__canvas > div {
+  @apply absolute inset-0 size-full;
+}
+
+.dc-map-stage__canvas,
+.dc-map-stage__canvas .maplibregl-canvas-container,
+.dc-map-stage__canvas .maplibregl-canvas {
+  cursor: grab;
+  pointer-events: auto !important;
+  touch-action: none;
+  user-select: none;
+}
+
+.dc-map-stage__canvas .maplibregl-canvas-container {
+  z-index: 1;
+}
+
+.dc-map-stage__canvas .maplibregl-control-container {
+  z-index: 4;
+  pointer-events: none !important;
+}
+
+.dc-map-stage__canvas .maplibregl-ctrl,
+.dc-map-stage__canvas .maplibregl-ctrl button {
+  pointer-events: auto;
+}
+
+.dc-map-stage__canvas.is-map-dragging,
+.dc-map-stage__canvas.is-map-dragging .maplibregl-canvas-container,
+.dc-map-stage__canvas.is-map-dragging .maplibregl-canvas {
+  cursor: grabbing !important;
+}
+
+.dc-map-stage {
+  --liquid-alpha: 0.07;
+  --liquid-blur: 12px;
+  --liquid-film-opacity: 0.16;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0.018)),
+    #f2f2f7;
+}
+
+.dc-map-stage--scientific {
+  @apply relative isolate min-h-[min(72vh,760px)] overflow-hidden;
+  contain: layout paint;
+}
+
+.dc-map-stage__blocking-error {
+  @apply absolute inset-x-5 top-1/2 z-30 grid -translate-y-1/2 gap-1 rounded-[20px] border border-red-200/80 bg-white/92 p-5 text-center text-red-950 shadow-[0_20px_50px_rgb(127_29_29/0.15)] backdrop-blur-xl;
+}
+
+.dc-map-stage__blocking-error strong {
+  @apply text-[15px] font-bold;
+}
+
+.dc-map-stage__blocking-error p {
+  @apply m-0 text-[13px] leading-6 text-red-800;
+}
+
+.dc-map-stage__warning {
+  @apply absolute left-1/2 top-[76px] z-20 max-w-[min(560px,calc(100%-32px))] -translate-x-1/2 rounded-full border border-amber-200/80 bg-amber-50/90 px-4 py-2 text-[12px] font-semibold text-amber-900 shadow-[0_10px_26px_rgb(120_53_15/0.10)] backdrop-blur-xl;
+}
+
+.dc-map-stage--loading {
+  @apply grid min-h-[min(72vh,760px)] place-items-center text-[15px] font-semibold text-slate-500;
+}
+
+.dc-map-stage__wash {
+  @apply pointer-events-none absolute inset-0 z-[3];
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.025), transparent 26%, rgb(15 23 42 / 0.025)),
+    radial-gradient(circle at 28% 18%, rgb(255 255 255 / 0.045), transparent 30%);
+}
+
+.dc-map-stage__hud {
+  @apply pointer-events-none absolute left-3 top-3 z-10 grid max-w-[min(520px,calc(100%-96px))] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[18px] border border-white/30 bg-white/22 px-3.5 py-2.5 text-[#1c1c1e] shadow-[0_10px_28px_rgb(15_23_42/0.055),inset_0_1px_0_rgb(255_255_255/0.52)] backdrop-blur-2xl backdrop-saturate-200;
+  --liquid-alpha: 0.045;
+  --liquid-blur: 10px;
+  --liquid-film-opacity: 0.14;
+}
+
+.dc-map-stage__hud strong {
+  @apply hidden font-mono text-[12px] font-semibold text-[#3a3a3c] sm:block;
+}
+
+.dc-map-stage__status-copy {
+  @apply min-w-0;
+}
+
+.dc-map-stage__capture {
+  align-items: center;
+  background: rgb(255 255 255 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.72);
+  border-radius: 12px;
+  color: #1d4ed8;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 650;
+  gap: 5px;
+  padding: 6px 9px;
+  pointer-events: auto;
+}
+
+.dc-map-stage__capture:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dc-map-stage__capture-error {
+  background: rgb(254 242 242 / 0.92);
+  border: 1px solid rgb(248 113 113 / 0.3);
+  border-radius: 10px;
+  color: #b91c1c;
+  font-size: 11px;
+  left: 12px;
+  margin: 0;
+  padding: 6px 9px;
+  position: absolute;
+  top: 76px;
+  z-index: 12;
+}
+
+.dc-map-stage__status-copy span {
+  @apply block truncate text-[14px] font-semibold text-[#1c1c1e];
+}
+
+.dc-map-stage__status-copy small {
+  @apply mt-0.5 block truncate text-[12px] text-[#6b7280];
+}
+
+.map-tool {
+  @apply inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-white/38 bg-white/34 px-3 text-[12px] font-semibold text-[#3a3a3c] shadow-[inset_0_1px_0_rgb(255_255_255/0.60)] transition-[transform,background-color,color,box-shadow] duration-200 hover:bg-white/52 hover:text-[#1c1c1e] active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-45;
+  touch-action: manipulation;
+}
+
+.map-tool-active {
+  @apply bg-[#1c1c1e] text-white shadow-[0_10px_22px_rgb(28_28_30/0.22)];
+}
+
+.dc-map-stage__legend {
+  @apply pointer-events-none absolute bottom-[68px] left-4 right-24 z-10 flex max-h-32 flex-wrap gap-2 overflow-auto;
+}
+
+.dc-map-stage__legend--scientific {
+  @apply pointer-events-auto left-4 right-auto bottom-16 block max-h-[min(46vh,420px)] w-[min(330px,calc(100%-92px))] overflow-hidden rounded-[18px] border border-white/45 bg-white/82 p-0 shadow-[0_18px_46px_rgb(15_23_42/0.13)] backdrop-blur-2xl;
+}
+
+.dc-map-stage__legend--scientific > header {
+  @apply flex items-center justify-between border-b border-black/[0.07] px-4 py-3;
+}
+
+.dc-map-stage__legend--scientific > header strong {
+  @apply text-[13px] font-bold text-[#1c1c1e];
+}
+
+.dc-map-stage__legend--scientific > header span {
+  @apply min-w-0 max-w-[220px] truncate text-[11px] font-semibold text-[#737780];
+}
+
+.dc-map-stage__legend-content {
+  @apply grid gap-2 px-4 py-3;
+}
+
+.dc-map-stage__legend-content > small {
+  @apply text-[10px] leading-4 text-[#777d88];
+}
+
+.dc-map-stage__legend-content > small.is-error {
+  @apply text-red-700;
+}
+
+.dc-map-stage__continuous-legend {
+  @apply grid gap-1;
+}
+
+.dc-map-stage__continuous-legend > i {
+  @apply block h-2.5 w-full rounded-full border border-black/10;
+}
+
+.dc-map-stage__continuous-legend > small {
+  @apply grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[9px] text-[#727780];
+}
+
+.dc-map-stage__continuous-legend > small b:last-child {
+  @apply text-right;
+}
+
+.dc-map-stage__category-legend {
+  @apply flex flex-wrap gap-x-2.5 gap-y-1;
+}
+
+.dc-map-stage__category-legend > span {
+  @apply inline-flex items-center gap-1 text-[9px] text-[#686e78];
+}
+
+.dc-map-stage__category-legend i {
+  @apply size-2 rounded-[2px] border border-black/10;
+}
+
+.dc-map-stage__timeline {
+  @apply pointer-events-auto absolute bottom-4 left-1/2 z-20 grid w-[min(560px,calc(100%-210px))] -translate-x-1/2 grid-cols-[36px_36px_minmax(100px,1fr)_auto_36px] items-center gap-2 rounded-full border border-white/48 bg-white/82 px-2 py-1.5 shadow-[0_14px_34px_rgb(15_23_42/0.12)] backdrop-blur-2xl;
+}
+
+.dc-map-stage__timeline button {
+  @apply grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-[#30343b] transition-colors hover:bg-black/[0.06] disabled:cursor-not-allowed disabled:opacity-35;
+}
+
+.dc-map-stage__timeline input {
+  @apply min-w-0 accent-[#1c1c1e];
+}
+
+.dc-map-stage__timeline > span {
+  @apply max-w-40 truncate text-[10px] font-semibold text-[#5f6570];
+}
+
+.dc-map-stage__canvas .maplibregl-ctrl-bottom-left {
+  left: 16px;
+  bottom: 16px;
+  z-index: 5;
+}
+
+.dc-map-stage__canvas .maplibregl-ctrl-scale {
+  @apply rounded-full border border-white/42 bg-white/38 px-3 py-1.5 font-mono text-[11px] font-semibold text-[#1c1c1e] shadow-[0_8px_18px_rgb(15_23_42/0.08),inset_0_1px_0_rgb(255_255_255/0.58)] backdrop-blur-2xl;
+  border-bottom-width: 1px;
+  line-height: 1;
+}
+
+.dc-map-stage__canvas .maplibregl-ctrl-bottom-right {
+  right: 6px;
+  bottom: 3px;
+  z-index: 5;
+}
+
+.dc-map-stage__canvas .maplibregl-ctrl-attrib.maplibregl-compact {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dc-map-stage__canvas .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button {
+  display: none;
+}
+
+.dc-map-stage__canvas .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-inner {
+  display: block;
+  padding: 0;
+  color: rgb(31 41 55 / 0.68);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-shadow: 0 1px 2px rgb(255 255 255 / 0.9);
+}
+
+.dc-map-stage__canvas .maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+
+.dc-map-popup {
+  @apply grid min-w-48 gap-2 rounded-[18px] border border-white/38 bg-white/46 p-3 text-[#1c1c1e] shadow-[0_18px_40px_rgb(15_23_42/0.14)] backdrop-blur-2xl;
+}
+
+.dc-map-popup h4 {
+  @apply text-[14px] font-bold;
+}
+
+.dc-map-popup div {
+  @apply grid grid-cols-[80px_1fr] gap-2 text-[12px];
+}
+
+.dc-map-popup span {
+  @apply text-[#6b7280];
+}
+
+.dc-map-popup strong {
+  @apply truncate font-semibold text-[#1c1c1e];
+}
+
+.dc-map-stage__popup {
+  @apply z-20;
+}
+
+.dc-map-stage__popup .maplibregl-popup-tip {
+  @apply hidden;
+}
+
+.dc-map-stage__hover-popup {
+  @apply z-10 pointer-events-none;
+}
+
+.dc-map-stage__hover-popup .maplibregl-popup-content {
+  @apply rounded-[10px] border border-white/30 bg-white/82 px-2.5 py-1.5 text-[12px] leading-tight text-[#1c1c1e] shadow-[0_4px_12px_rgb(15_23_42/0.10)] backdrop-blur-lg;
+}
+
+.dc-map-stage__hover-popup .maplibregl-popup-tip {
+  @apply hidden;
+}
+
+.dc-hover-popup {
+  @apply flex items-center gap-1.5 whitespace-nowrap;
+}
+
+.dc-hover-popup strong {
+  @apply font-semibold;
+}
+
+.dc-hover-category {
+  @apply rounded-full bg-black/[0.06] px-1.5 py-px text-[11px] text-[#6e7681];
+}
+
+.dc-null {
+  @apply text-[#8e8e93] not-italic;
+}
+
+.maplibregl-popup-content {
+  @apply rounded-[20px] bg-transparent p-0 shadow-none;
+}
+
+@media (max-width: 767px) {
+  .dc-map-stage--scientific {
+    min-height: max(480px, calc(100dvh - 154px));
+  }
+
+  .dc-map-stage__hud {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dc-map-stage__legend {
+    left: 10px;
+    right: 70px;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  .dc-map-stage__legend--scientific {
+    top: auto;
+    max-height: min(40dvh, 330px);
+    width: auto;
+    border-radius: 18px;
+  }
+
+  .dc-map-stage__timeline {
+    left: 10px;
+    right: 70px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: auto;
+    transform: none;
+    grid-template-columns: 32px 32px minmax(72px, 1fr) 32px;
+  }
+
+  .dc-map-stage__timeline > span {
+    display: none;
+  }
+
+  .dc-map-stage__warning {
+    top: 80px;
+    border-radius: 14px;
+    text-align: center;
+  }
+}

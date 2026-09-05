@@ -1,0 +1,331 @@
+name: Desktop Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    paths:
+      - '.github/workflows/package-desktop.yml'
+      - 'apps/desktop/**'
+      - 'apps/operations-console/**'
+      - 'apps/server/**'
+      - 'apps/worker/**'
+      - 'packages/**'
+      - 'deploy/**'
+      - 'infra/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: '从 main 创建不可变 v<version> 标签；标签事件负责签名打包与发布'
+        required: true
+        type: boolean
+        default: false
+      version:
+        description: 'publish=true 时必须与 package.json 版本完全一致，例如 0.1.4'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-packages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' && !(github.event_name == 'workflow_dispatch' && inputs.publish) }}
+
+jobs:
+  validate:
+    name: Validate release input
+    runs-on: ubuntu-24.04
+    outputs:
+      production: ${{ steps.release.outputs.production }}
+      create_tag: ${{ steps.release.outputs.create_tag }}
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      source_date_epoch: ${{ steps.release.outputs.source_date_epoch }}
+      source_revision: ${{ steps.release.outputs.source_revision }}
+      version: ${{ steps.release.outputs.version }}
+      win_signing: ${{ steps.signing.outputs.win_signing }}
+      mac_signing: ${{ steps.signing.outputs.mac_signing }}
+      linux_signing: ${{ steps.signing.outputs.linux_signing }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Validate release scripts
+        run: node --test scripts/release-pipeline.test.mjs
+
+      - name: Resolve release mode
+        id: release
+        shell: bash
+        env:
+          REQUESTED_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish || false }}
+          REQUESTED_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
+        run: bash scripts/resolve-desktop-release-mode.sh
+
+      - name: Detect signing credentials
+        id: signing
+        shell: bash
+        env:
+          WIN_CERT: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 }}
+          MAC_CERT: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          LINUX_SIGNING_KEY: ${{ secrets.RUNTIME_MANIFEST_ED25519_PRIVATE_KEY_BASE64 }}
+        run: |
+          echo "win_signing=$([[ -n "${WIN_CERT}" ]] && echo yes || echo no)" >> "${GITHUB_OUTPUT}"
+          echo "mac_signing=$([[ -n "${MAC_CERT}" ]] && echo yes || echo no)" >> "${GITHUB_OUTPUT}"
+          echo "linux_signing=$([[ -n "${LINUX_SIGNING_KEY}" ]] && echo yes || echo no)" >> "${GITHUB_OUTPUT}"
+
+  create-release-tag:
+    name: Create immutable release tag
+    if: needs.validate.outputs.create_tag == 'true'
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+      SOURCE_REVISION: ${{ needs.validate.outputs.source_revision }}
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create and push version tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "标签 ${RELEASE_TAG} 已存在；版本标签不可覆盖或重建。" >&2
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag --annotate "${RELEASE_TAG}" "${SOURCE_REVISION}" \
+            --message "Geo Agent Platform ${RELEASE_VERSION}"
+          git push origin "refs/tags/${RELEASE_TAG}"
+
+  package:
+    name: Package ${{ matrix.label }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows x64
+            runner: windows-latest
+            platform: win32
+            architecture: x64
+            artifact: desktop-windows-x64
+            command: npm run make:windows --workspace @geo-agent-platform/desktop
+          - label: macOS Intel
+            runner: macos-15-intel
+            platform: darwin
+            architecture: x64
+            artifact: desktop-macos-x64
+            command: npm run make:macos:x64 --workspace @geo-agent-platform/desktop
+          - label: macOS Apple Silicon
+            runner: macos-15
+            platform: darwin
+            architecture: arm64
+            artifact: desktop-macos-arm64
+            command: npm run make:macos:arm64 --workspace @geo-agent-platform/desktop
+          - label: Linux x64
+            runner: ubuntu-24.04
+            platform: linux
+            architecture: x64
+            artifact: desktop-linux-x64
+            command: npm run make:linux --workspace @geo-agent-platform/desktop
+    runs-on: ${{ matrix.runner }}
+    env:
+      GEO_AGENT_PLATFORM_RELEASE_BUILD: ${{ needs.validate.outputs.production == 'true' && '1' || '0' }}
+      SOURCE_DATE_EPOCH: ${{ needs.validate.outputs.source_date_epoch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup uv for the locked Linux runtime
+        if: matrix.platform == 'linux'
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.11.19'
+          enable-cache: true
+          cache-dependency-glob: apps/worker/uv.lock
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Prepare Linux package host
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: bash scripts/prepare-linux-package-host.sh
+
+      - name: Build macOS icon set
+        if: matrix.platform == 'darwin'
+        shell: bash
+        run: bash scripts/build-macos-icon.sh
+
+      - name: Import Windows signing certificate
+        if: needs.validate.outputs.production == 'true' && matrix.platform == 'win32' && needs.validate.outputs.win_signing == 'yes'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_PFX_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD_SECRET: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: ./scripts/import-windows-signing-certificate.ps1
+
+      - name: Import macOS signing and notarization credentials
+        if: needs.validate.outputs.production == 'true' && matrix.platform == 'darwin' && needs.validate.outputs.mac_signing == 'yes'
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGNING_IDENTITY_SECRET: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_SECRET: ${{ secrets.APPLE_API_ISSUER }}
+        run: bash scripts/import-macos-signing-identity.sh
+
+      - name: Prepare signed Runtime Service manifest
+        if: needs.validate.outputs.production == 'true' && matrix.platform == 'linux' && needs.validate.outputs.linux_signing == 'yes'
+        shell: bash
+        env:
+          RUNTIME_MANIFEST_ED25519_PRIVATE_KEY_BASE64: ${{ secrets.RUNTIME_MANIFEST_ED25519_PRIVATE_KEY_BASE64 }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_SOURCE_REVISION: ${{ needs.validate.outputs.source_revision }}
+        run: bash scripts/prepare-linux-runtime-signing.sh
+
+      - name: Build signed Linux packages
+        if: needs.validate.outputs.production == 'true' && matrix.platform == 'linux' && needs.validate.outputs.linux_signing == 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/create-runtime-service-artifact.mjs \
+            --build \
+            --force \
+            --materialize-linux \
+            --signing-key "${RUNTIME_SIGNING_PRIVATE_KEY}"
+          node scripts/verify-runtime-service-artifact.mjs \
+            --require-signature \
+            --trusted-public-key "${RUNTIME_SIGNING_PUBLIC_KEY}"
+          npm run make:linux:from-runtime --workspace @geo-agent-platform/desktop
+
+      - name: Build platform packages
+        if: matrix.platform != 'linux' || needs.validate.outputs.production != 'true' || needs.validate.outputs.linux_signing != 'yes'
+        run: ${{ matrix.command }}
+
+      - name: Verify package set
+        shell: bash
+        run: |
+          arguments=(
+            --root apps/desktop/release/make
+            --platform '${{ matrix.platform }}'
+            --arch '${{ matrix.architecture }}'
+          )
+          if [[ '${{ needs.validate.outputs.production }}' == 'true' ]]; then
+            arguments+=(--production)
+          fi
+          node scripts/verify-desktop-package-output.mjs "${arguments[@]}"
+
+      - name: Upload platform packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: apps/desktop/release/make/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove Windows signing certificate
+        if: always() && needs.validate.outputs.production == 'true' && matrix.platform == 'win32' && needs.validate.outputs.win_signing == 'yes'
+        shell: pwsh
+        run: Remove-Item -LiteralPath $env:WINDOWS_CERTIFICATE_FILE -Force -ErrorAction SilentlyContinue
+
+      - name: Remove macOS signing keychain
+        if: always() && needs.validate.outputs.production == 'true' && matrix.platform == 'darwin' && needs.validate.outputs.mac_signing == 'yes'
+        shell: bash
+        run: |
+          keychain_path="${RUNNER_TEMP}/desktop-signing.keychain-db"
+          [[ ! -f "${keychain_path}" ]] || security delete-keychain "${keychain_path}"
+          rm -f "${RUNNER_TEMP}/desktop-signing.p12" "${RUNNER_TEMP}"/AuthKey_*.p8
+
+      - name: Remove Linux Runtime Service signing keys
+        if: always() && needs.validate.outputs.production == 'true' && matrix.platform == 'linux' && needs.validate.outputs.linux_signing == 'yes'
+        shell: bash
+        run: rm -f "${RUNNER_TEMP}"/runtime-manifest-ed25519-*.pem
+
+  release:
+    name: Publish GitHub Release
+    if: needs.validate.outputs.production == 'true'
+    needs:
+      - validate
+      - create-release-tag
+      - package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+      SOURCE_DATE_EPOCH: ${{ needs.validate.outputs.source_date_epoch }}
+      SOURCE_REVISION: ${{ needs.validate.outputs.source_revision }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Download all platform packages
+        uses: actions/download-artifact@v8
+        with:
+          path: dist/packages
+
+      - name: Stage release assets and checksums
+        run: >-
+          node scripts/prepare-release-assets.mjs
+          --source dist/packages
+          --output dist/release-assets
+          --version "${RELEASE_VERSION}"
+          --source-revision "${SOURCE_REVISION}"
+
+      - name: Attest release provenance
+        uses: actions/attest@v4
+        with:
+          subject-checksums: dist/release-assets/SHA256SUMS
+
+      - name: Publish immutable GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/publish-desktop-release.sh
+
+      - name: Upload combined release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-release-${{ needs.validate.outputs.version }}
+          path: dist/release-assets/**
+          if-no-files-found: error
+          retention-days: 90

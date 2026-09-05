@@ -1,0 +1,60 @@
+{
+  "id": "geo-platform-public-weather",
+  "name": "公开天气服务",
+  "version": "1.0.0",
+  "author": "geo-agent-platform",
+  "language": "typescript",
+  "homepage": "https://open-meteo.com/",
+  "description": "基于 Open-Meteo 的零密钥公开天气、逐小时预报、每日预报与参考空气质量查询",
+  "tools": [
+    {
+      "name": "query_public_weather",
+      "label": "查询公开天气",
+      "description": "查询地点当前天气、请求天数内逐小时预报、未来1–7天综合预报及参考空气质量。",
+      "group": "气象",
+      "tags": ["weather", "forecast", "air-quality", "public-data"],
+      "isReadOnly": true,
+      "isDestructive": false,
+      "parallelSafe": true,
+      "executionSurfaces": ["agent", "automation", "debug"],
+      "agentResultMode": "continue",
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160,
+            "description": "城市或区县的标准名称，例如“杭州”；明确景点或 POI 可使用所属城市查询，但回答必须说明是城市级近似预报"
+          },
+          "country_code": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2,
+            "description": "可选的 ISO 3166-1 alpha-2 国家代码，例如 CN"
+          },
+          "location_ref": {
+            "type": "string",
+            "minLength": 1,
+            "description": "可选的当前 run place_candidate 或 nowcast_coordinate valueRef ID",
+            "x-source": "value_ref",
+            "x-value-ref-kinds": ["place_candidate", "nowcast_coordinate"]
+          },
+          "forecast_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7,
+            "default": 3,
+            "description": "日预报天数，1–7 天"
+          },
+          "include_air_quality": {
+            "type": "boolean",
+            "default": true,
+            "description": "是否同时查询参考空气质量"
+          }
+        },
+        "required": ["location"]
+      }
+    }
+  ]
+}

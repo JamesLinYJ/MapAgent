@@ -1,0 +1,22 @@
+[Unit]
+Description=Geo Agent Platform TypeScript Process Supervisor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=geo_platform
+Group=geo_platform
+SupplementaryGroups=geo-agent-platform-ops
+WorkingDirectory="@@GEO_AGENT_PLATFORM_ROOT@@"
+EnvironmentFile=/etc/geo-agent-platform/geo-agent-platform.env
+ExecStart="@@GEO_AGENT_PLATFORM_ROOT@@/node-runtime/bin/node" "@@GEO_AGENT_PLATFORM_ROOT@@/packages/operations-supervisor/dist/cli.js" daemon --root "@@GEO_AGENT_PLATFORM_ROOT@@" --profile production --token-file "${GEO_AGENT_PLATFORM_SUPERVISOR_TOKEN_FILE}"
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=120
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

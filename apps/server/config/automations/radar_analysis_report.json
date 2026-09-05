@@ -1,0 +1,28 @@
+{
+  "automationId": "radar_analysis_report",
+  "name": "雷达资料分析报告",
+  "description": "由智能体按雷达工具契约完成检查、分析、制图和报告。",
+  "version": "2.0.0",
+  "revision": 1,
+  "enabled": true,
+  "parametersSchema": { "type": "object", "additionalProperties": true },
+  "defaultParameters": {},
+  "requiredTools": [],
+  "requiresApproval": false,
+  "timeoutSeconds": 1200,
+  "outputType": "conversation",
+  "graph": {
+    "schemaVersion": 1,
+    "entryNodeId": "trigger",
+    "viewport": { "x": 0, "y": 0, "zoom": 1 },
+    "nodes": [
+      { "nodeId": "trigger", "type": "trigger", "label": "雷达任务触发", "description": "接收雷达分析目标。", "position": { "x": 40, "y": 120 }, "config": {} },
+      { "nodeId": "agent", "type": "agent", "label": "雷达分析智能体", "description": "按数据实际情况选择检查、分析、渲染和报告工具。", "position": { "x": 360, "y": 120 }, "config": { "promptTemplate": "{{{input.prompt}}}\n请对当前雷达资料完成检查、主要回波特征分析、必要制图和报告。缺少数据、格式不支持或任何工具失败时必须明确失败，不得编造产物。", "executionMode": "auto", "reasoning": true, "retry": { "maxAttempts": 1, "backoffSeconds": 0 } } },
+      { "nodeId": "output", "type": "output", "label": "雷达分析结果", "description": "输出回答和关联运行。", "position": { "x": 700, "y": 120 }, "config": { "outputs": { "answer": { "source": "node", "nodeId": "agent", "path": "response" }, "runId": { "source": "node", "nodeId": "agent", "path": "runId" } } } }
+    ],
+    "edges": [
+      { "edgeId": "trigger-agent", "sourceNodeId": "trigger", "targetNodeId": "agent", "sourcePort": "default" },
+      { "edgeId": "agent-output", "sourceNodeId": "agent", "targetNodeId": "output", "sourcePort": "success" }
+    ]
+  }
+}

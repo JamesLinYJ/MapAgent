@@ -1,0 +1,32 @@
+/* +-------------------------------------------------------------------------
+ *
+ *   地理智能平台 - 跨页面 UI 设计系统入口
+ *
+ *   文件:       ui-system.css
+ *
+ *   日期:       2026年08月18日
+ *   作者:       JamesLinYJ
+ *   协助:       OpenAI ChatGPT:GPT-5.6 Pro
+ * -------------------------------------------------------------------------- */
+
+/*
+ * 工作区只从这里加载业务样式。领域样式可以拥有布局，但颜色、表面、
+ * 焦点、状态、控件与浮层语义必须由最后四层收口。导入顺序也是层级
+ * 契约，不要把样式重新分散到 React 组件入口。
+ */
+
+@import '../AppShell.css';
+@import './glass.css';
+@import './markdown.css';
+@import './conversation.css';
+@import './map.css';
+@import './layers.css';
+@import './layout.css';
+@import './tools-debug.css';
+@import './settings.css';
+@import './desktop.css';
+
+@import './ui-foundation.css';
+@import './ui-pages.css';
+@import './ui-content.css';
+@import './ui-overlays.css';
