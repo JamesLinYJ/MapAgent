@@ -49,6 +49,10 @@ def _opened(path: Path):
         connection.close()
 
 
+class NonceStoreCapacityError(LifecycleStoreError):
+    """有效 nonce 已占满容量；不得通过淘汰它们接受新请求。"""
+
+
 class SqliteNonceStore:
     """跨 Worker 进程共享的 nonce 一次性消费表。"""
 
@@ -82,14 +86,11 @@ class SqliteNonceStore:
                     connection.rollback()
                     return False
                 count = int(connection.execute("SELECT COUNT(*) FROM worker_nonces").fetchone()[0])
-                overflow = count - max(0, max_entries - 1)
-                if overflow > 0:
-                    connection.execute(
-                        "DELETE FROM worker_nonces WHERE nonce IN ("
-                        "SELECT nonce FROM worker_nonces ORDER BY expires_at ASC LIMIT ?"
-                        ")",
-                        (overflow,),
-                    )
+                if count >= max_entries:
+                    # 防重放记录不是可淘汰缓存。容量不足时必须拒绝新请求，
+                    # 不能让仍在签名有效期内的旧请求重新取得执行资格。
+                    connection.commit()
+                    raise NonceStoreCapacityError("Worker nonce 存储容量已满")
                 connection.execute(
                     "INSERT INTO worker_nonces(nonce, expires_at) VALUES (?, ?)",
                     (nonce, expires_at),

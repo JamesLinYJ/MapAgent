@@ -247,10 +247,10 @@ class ProcessToolExecutor:
             remaining = _remaining_seconds(loop, deadline)
             await asyncio.wait_for(self.start(), timeout=remaining)
             remaining = _remaining_seconds(loop, deadline)
-            slot = await asyncio.wait_for(
-                self._acquire_slot(),
-                timeout=remaining,
-            )
+            # 保持获取与使用槽位在同一 Task，避免 wait_for 的子 Task
+            # 已返回槽位、调用方却在接收结果前被取消的第二个交接窗口。
+            async with asyncio.timeout(remaining):
+                slot = await self._acquire_slot()
         except TimeoutError as exc:
             raise WorkerToolTimeoutError("Worker 工具执行超时") from exc
         self._active_slots.add(slot)
@@ -365,7 +365,6 @@ class ProcessToolExecutor:
                     return slot
             slot_task = asyncio.create_task(queue.get())
             close_task = asyncio.create_task(self._close_signal().wait())
-            item_consumed = False
             try:
                 done, _ = await asyncio.wait(
                     (slot_task, close_task),
@@ -373,25 +372,32 @@ class ProcessToolExecutor:
                 )
                 if close_task in done:
                     raise WorkerToolExecutionError("Worker 工具进程池已关闭")
+                close_task.cancel()
+                # 所有可取消的清理都必须在交付之前完成；return 后不能再
+                # 进入带 await 的 finally，否则取消会吞掉已取出的槽位。
+                await asyncio.gather(close_task, return_exceptions=True)
+                if self._closing:
+                    raise WorkerToolExecutionError("Worker 工具进程池已关闭")
                 available = slot_task.result()
-                item_consumed = True
-                if available is not None:
-                    return available
-            finally:
+            except BaseException:
                 for task in (slot_task, close_task):
                     if not task.done():
                         task.cancel()
+
+                def return_unclaimed_slot(task: asyncio.Task[_ProcessSlot | None]) -> None:
+                    if not self._closing and not task.cancelled() and task.exception() is None:
+                        queue.put_nowait(task.result())
+
+                # 在再次 await 前归还已取得的槽位；迟到的 queue.get 由
+                # 单次完成回调归还，重复取消也不会跳过资源所有权回收。
+                if slot_task.done():
+                    return_unclaimed_slot(slot_task)
+                else:
+                    slot_task.add_done_callback(return_unclaimed_slot)
                 await asyncio.gather(slot_task, close_task, return_exceptions=True)
-                if (
-                    not item_consumed
-                    and not self._closing
-                    and slot_task.done()
-                    and not slot_task.cancelled()
-                    and slot_task.exception() is None
-                ):
-                    # acquire 自身被取消时，queue.get 可能恰好已取得可用槽；
-                    # 必须放回，否则槽仍计入池容量却再也不会被调度。
-                    queue.put_nowait(slot_task.result())
+                raise
+            if available is not None:
+                return available
 
     async def _spawn_slot(self) -> _ProcessSlot:
         parent_connection, child_connection = self._context.Pipe(duplex=True)

@@ -22,7 +22,7 @@ from pathlib import Path
 import time
 from typing import Any
 
-from worker_app.lifecycle import LifecycleStoreError, SqliteNonceStore
+from worker_app.lifecycle import LifecycleStoreError, NonceStoreCapacityError, SqliteNonceStore
 
 
 @dataclass(slots=True)
@@ -63,11 +63,11 @@ class WorkerAuthVerifier:
             nonce_store=self.nonce_store,
         )
 
-    def purge_expired_nonces(self, now: int, reserve_slots: int = 0) -> None:
+    def purge_expired_nonces(self, now: int) -> None:
         if self.nonce_store is not None:
             self.nonce_store.purge_expired(now)
             return
-        purge_expired_nonces(self.seen_nonces, now, max(1, self.config.nonce_cache_max), reserve_slots=reserve_slots)
+        purge_expired_nonces(self.seen_nonces, now)
 
 
 def verify_worker_authorization(
@@ -118,14 +118,18 @@ def verify_worker_authorization(
     if nonce_store is not None:
         try:
             accepted = nonce_store.consume(nonce, exp, now, nonce_cache_max)
+        except NonceStoreCapacityError:
+            return 503, "Worker nonce 存储容量已满，请稍后重试"
         except LifecycleStoreError:
             return 503, "Worker nonce 存储不可用"
         if not accepted:
             return 403, "Worker 授权 nonce 已使用"
     else:
-        purge_expired_nonces(seen_nonces, now, nonce_cache_max, reserve_slots=1)
+        purge_expired_nonces(seen_nonces, now)
         if nonce in seen_nonces:
             return 403, "Worker 授权 nonce 已使用"
+        if len(seen_nonces) >= nonce_cache_max:
+            return 503, "Worker nonce 存储容量已满，请稍后重试"
         seen_nonces[nonce] = exp
     return None
 
@@ -142,16 +146,7 @@ def int_payload(value: Any) -> int | None:
 def purge_expired_nonces(
     seen_nonces: dict[str, int],
     now: int,
-    nonce_cache_max: int,
-    *,
-    reserve_slots: int = 0,
 ) -> None:
     expired = [nonce for nonce, exp in seen_nonces.items() if exp < now]
     for nonce in expired:
         seen_nonces.pop(nonce, None)
-    target_size = max(0, nonce_cache_max - reserve_slots)
-    overflow = len(seen_nonces) - target_size
-    if overflow > 0:
-        sorted_by_exp = sorted(seen_nonces.items(), key=lambda item: item[1])
-        for nonce, _exp in sorted_by_exp[:overflow]:
-            seen_nonces.pop(nonce, None)

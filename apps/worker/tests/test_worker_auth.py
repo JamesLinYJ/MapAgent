@@ -9,7 +9,7 @@
 #   协助:       OpenAI Codex:GPT-5.5
 # --------------------------------------------------------------------------
 
-"""Worker 安全认证单元测试 —— nonce 重放、容量淘汰、bodyHash 校验。"""
+"""Worker 安全认证单元测试 —— nonce 重放、容量拒绝、bodyHash 校验。"""
 
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ class NonceReplayTests(unittest.TestCase):
 
 
 class NonceCacheCapacityTests(unittest.TestCase):
-    """验证 nonce cache 超上限时淘汰最早过期的条目。"""
+    """验证 nonce cache 超上限时拒绝新请求而不淘汰有效记录。"""
 
     def setUp(self) -> None:
         self.secret = "test-secret-cap"
@@ -101,8 +101,8 @@ class NonceCacheCapacityTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.verifier.seen_nonces.clear()
 
-    def test_overflow_evicts_earliest_exp(self) -> None:
-        """超过上限时 exp 最早（最先过期）的 nonce 应被淘汰。"""
+    def test_overflow_rejects_new_nonce_without_evicting_unexpired_entries(self) -> None:
+        """超过上限时不能丢弃仍在有效期内的防重放记录。"""
         now = int(time.time())
         # 填充 5 个 nonce，exp 递增
         for i in range(5):
@@ -114,11 +114,11 @@ class NonceCacheCapacityTests(unittest.TestCase):
         newest_nonce = "newest-nonce-entry-001"
         auth = _sign(self.tool, self.body, self.secret, nonce=newest_nonce, exp=now + 65)
         err = self.verifier.verify(auth, self.tool, self.body)
-        self.assertIsNone(err)
-        self.assertLessEqual(len(self.verifier.seen_nonces), 5, "应淘汰到上限以内")
-        # "keep-me-0" exp=now+60 最早，应该被淘汰
-        self.assertNotIn("keep-me-0", self.verifier.seen_nonces)
-        self.assertIn(newest_nonce, self.verifier.seen_nonces)
+        self.assertIsNotNone(err)
+        self.assertEqual(err[0], 503)
+        self.assertEqual(len(self.verifier.seen_nonces), 5)
+        self.assertIn("keep-me-0", self.verifier.seen_nonces)
+        self.assertNotIn(newest_nonce, self.verifier.seen_nonces)
 
     def test_within_limit_keeps_all(self) -> None:
         """未超过上限时所有 nonce 均保留。"""

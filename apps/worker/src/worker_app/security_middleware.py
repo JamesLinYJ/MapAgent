@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Protocol
 from uuid import uuid4
@@ -74,7 +75,11 @@ class WorkerSecurityMiddleware:
             await _send_json(scope, receive, send, 413, "Worker 请求体超过大小限制")
             return
 
-        body = await _read_bounded_body(receive, self.max_body_bytes)
+        try:
+            body = await _read_bounded_body(receive, self.max_body_bytes)
+        except _ClientDisconnected:
+            # 不把断开的不完整上传当成可验签、可执行的请求。
+            return
         if body is None:
             self.logger.warning(
                 "Worker 请求体超过大小限制",
@@ -94,12 +99,52 @@ class WorkerSecurityMiddleware:
             await _send_json(scope, receive, send, status_code, detail)
             return
 
-        replay_receive = _body_receiver(body)
-        lease = await self.concurrency_limiter.acquire()
-        try:
-            await self.app(scope, replay_receive, send)
-        finally:
-            await self.concurrency_limiter.release(lease)
+        disconnected = asyncio.Event()
+
+        async def run_admitted_request() -> None:
+            # 排队和执行必须属于同一个可取消任务。acquire 自己负责处理
+            # SQLite INSERT 与取消竞争；获得的租约始终在 finally 中释放。
+            lease = await self.concurrency_limiter.acquire()
+            try:
+                if not disconnected.is_set():
+                    await self.app(scope, _body_receiver(body, disconnected), send)
+            finally:
+                await self.concurrency_limiter.release(lease)
+
+        # 完整读取并验签后，只有 monitor 消费上游 receive。下游重放一次
+        # body 后等待同一个断开事件，避免两个消费者抢走 http.disconnect。
+        async with asyncio.TaskGroup() as tasks:
+            monitor = tasks.create_task(_watch_disconnect(receive, disconnected))
+            operation = tasks.create_task(run_admitted_request())
+            try:
+                done, _ = await asyncio.wait(
+                    (operation, monitor), return_when=asyncio.FIRST_COMPLETED,
+                )
+                if operation in done:
+                    await operation
+                else:
+                    await monitor
+                    operation.cancel()
+                    try:
+                        await operation
+                    except asyncio.CancelledError:
+                        pass
+            finally:
+                # TaskGroup 在外部取消/异常时等待科学进程及租约回收，
+                # 正常响应完成时也不能遗留一个无限等待的断开监听器。
+                monitor.cancel()
+
+
+class _ClientDisconnected(Exception):
+    """上传尚未完整时客户端已断开，不再进入认证或调度。"""
+
+
+async def _watch_disconnect(receive: Receive, disconnected: asyncio.Event) -> None:
+    while True:
+        message = await receive()
+        if message["type"] == "http.disconnect":
+            disconnected.set()
+            return
 
 
 def worker_auth_target(path: str) -> str:
@@ -127,7 +172,7 @@ async def _read_bounded_body(receive: Receive, limit: int) -> bytes | None:
     while more_body:
         message = await receive()
         if message["type"] == "http.disconnect":
-            return bytes(chunks)
+            raise _ClientDisconnected()
         if message["type"] != "http.request":
             continue
         chunks.extend(message.get("body", b""))
@@ -137,13 +182,14 @@ async def _read_bounded_body(receive: Receive, limit: int) -> bytes | None:
     return bytes(chunks)
 
 
-def _body_receiver(body: bytes) -> Receive:
+def _body_receiver(body: bytes, disconnected: asyncio.Event) -> Receive:
     delivered = False
 
     async def receive() -> Message:
         nonlocal delivered
         if delivered:
-            return {"type": "http.request", "body": b"", "more_body": False}
+            await disconnected.wait()
+            return {"type": "http.disconnect"}
         delivered = True
         return {"type": "http.request", "body": body, "more_body": False}
 
