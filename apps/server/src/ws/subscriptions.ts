@@ -15,6 +15,7 @@
 // 应用事件总线；WebSocket 只负责把已持久化或已发布的事件转成协议消息。
 
 import { WebSocket } from 'ws'
+import { WsOutboundGuard, type WsDeliveryScope, type WsOutboundGuardOptions } from './WsOutboundGuard.js'
 
 import type {
   AnalysisRun,
@@ -34,6 +35,7 @@ import {
 const MAX_WS_BUFFERED_BYTES = 8 * 1024 * 1024
 const MAX_QUEUED_RUN_DELIVERY_BYTES = MAX_WS_BUFFERED_BYTES
 const MAX_QUEUED_RUN_DELIVERY_SLOTS = 4_096
+const outboundGuards = new WeakMap<WebSocket, WsOutboundGuard>()
 const runDeliveryStates = new WeakMap<WebSocket, RunDeliveryState>()
 const runCaptureStates = new WeakMap<WebSocket, Map<string, RunCaptureQueue>>()
 
@@ -132,11 +134,12 @@ export function subscribeToThread(
   store.getThread(threadId)
   const key = `thread:${threadId}`
   if (subscriptions.has(key)) return
-  const unsubscribeEntry = events.threadEntries.subscribe(threadId, entry => sendWs(ws, push('thread.entry', entry)))
-  const unsubscribeUpdate = events.threadUpdates.subscribe(threadId, update => sendWs(ws, push('thread.updated', update)))
-  const unsubscribeCompact = events.threadCompactions.subscribe(threadId, record => sendWs(ws, push('thread.compacted', record)))
-  const unsubscribeMemory = events.threadMemories.subscribe(threadId, memory => sendWs(ws, push('thread.memory.updated', memory)))
-  const unsubscribeMapScene = events.mapScenes.subscribe(threadId, scene => sendWs(ws, push('map.scene.updated', scene)))
+  const sendThread = (message: string) => sendProtectedWs(ws, { object: 'thread', resourceId: threadId }, message)
+  const unsubscribeEntry = events.threadEntries.subscribe(threadId, entry => sendThread(push('thread.entry', entry)))
+  const unsubscribeUpdate = events.threadUpdates.subscribe(threadId, update => sendThread(push('thread.updated', update)))
+  const unsubscribeCompact = events.threadCompactions.subscribe(threadId, record => sendThread(push('thread.compacted', record)))
+  const unsubscribeMemory = events.threadMemories.subscribe(threadId, memory => sendThread(push('thread.memory.updated', memory)))
+  const unsubscribeMapScene = events.mapScenes.subscribe(threadId, scene => sendThread(push('map.scene.updated', scene)))
   subscriptions.set(key, () => {
     unsubscribeEntry()
     unsubscribeUpdate()
@@ -325,7 +328,7 @@ export function reserveRunDelivery(ws: WebSocket, runId: string): (message: stri
     if (currentState !== state || state.queues.get(runId) !== queue) return
     const byteLength = Buffer.byteLength(message, 'utf8')
     const socketBufferedBytes = ws.bufferedAmount ?? 0
-    if (socketBufferedBytes + state.queuedBytes + byteLength > MAX_QUEUED_RUN_DELIVERY_BYTES) {
+    if (socketBufferedBytes + state.queuedBytes + (outboundGuards.get(ws)?.bufferedBytes ?? 0) + byteLength > MAX_QUEUED_RUN_DELIVERY_BYTES) {
       logger.warn({ queuedBytes: state.queuedBytes, socketBufferedBytes, runId }, 'run delivery buffer exceeded')
       terminateConnection(ws)
       return
@@ -363,7 +366,7 @@ function drainRunDelivery(
       slot.next = null
       state.queuedBytes -= message.byteLength
       state.slotCount -= 1
-      sendWs(ws, message.body)
+      sendProtectedWs(ws, { object: 'run', resourceId: runId }, message.body)
     }
   } finally {
     queue.draining = false
@@ -373,12 +376,50 @@ function drainRunDelivery(
   }
 }
 
+/** 由连接入口安装；控制命令错误响应仍可通过普通 sendWs 返回。 */
+export function installWsDeliveryGuard(
+  ws: WebSocket,
+  authorize: WsOutboundGuardOptions['authorize'],
+  isCurrent: () => boolean,
+  onDenied: () => void,
+): () => void {
+  if (outboundGuards.has(ws)) throw new Error('WebSocket 发送授权边界不能重复安装。')
+  const guard = new WsOutboundGuard({
+    authorize,
+    isCurrent,
+    deliver: message => sendWs(ws, message),
+    onDenied: () => {
+      try { onDenied() } finally { terminateConnection(ws) }
+    },
+  })
+  outboundGuards.set(ws, guard)
+  return () => {
+    guard.dispose()
+    if (outboundGuards.get(ws) === guard) outboundGuards.delete(ws)
+  }
+}
+
+/** 所有 run 队列、线程推送及心跳在实际发送之前进入同一个授权边界。 */
+export function sendProtectedWs(ws: WebSocket, scope: WsDeliveryScope | null, message: string): void {
+  if (ws.readyState !== WebSocket.OPEN) return
+  const guard = outboundGuards.get(ws)
+  if (!guard) { sendWs(ws, message); return }
+  const byteLength = Buffer.byteLength(message, 'utf8')
+  const totalBytes = (ws.bufferedAmount ?? 0)
+    + (runDeliveryStates.get(ws)?.queuedBytes ?? 0) + guard.bufferedBytes + byteLength
+  if (totalBytes > MAX_WS_BUFFERED_BYTES) {
+    terminateConnection(ws)
+    return
+  }
+  guard.enqueue(scope, message, byteLength)
+}
+
 export function sendWs(ws: WebSocket, message: string): void {
   if (ws.readyState !== WebSocket.OPEN) return
   const bufferedAmount = ws.bufferedAmount ?? 0
   const queuedRunBytes = runDeliveryStates.get(ws)?.queuedBytes ?? 0
   const byteLength = Buffer.byteLength(message, 'utf8')
-  if (bufferedAmount + queuedRunBytes + byteLength > MAX_WS_BUFFERED_BYTES) {
+  if (bufferedAmount + queuedRunBytes + (outboundGuards.get(ws)?.bufferedBytes ?? 0) + byteLength > MAX_WS_BUFFERED_BYTES) {
     logger.warn({ bufferedAmount, queuedRunBytes }, 'ws send buffer exceeded')
     terminateConnection(ws)
     return
@@ -396,6 +437,7 @@ export function sendWs(ws: WebSocket, message: string): void {
 }
 
 export function clearRunDeliveries(ws: WebSocket): void {
+  outboundGuards.get(ws)?.dispose()
   const state = runDeliveryStates.get(ws)
   if (state) {
     for (const queue of state.queues.values()) {

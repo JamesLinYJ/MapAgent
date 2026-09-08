@@ -24,7 +24,8 @@ import {
   success,
   type ClientMsg,
 } from './protocol.js'
-import { clearRunDeliveries, sendWs } from './subscriptions.js'
+import { clearRunDeliveries, installWsDeliveryGuard, sendProtectedWs, sendWs } from './subscriptions.js'
+import { createWsDeliveryAuthorizer, wsAuthNotExpired } from './deliveryAuthorization.js'
 import type { SecurityServices } from '../security/routes.js'
 import { WsMessageRateLimiter } from '../security/rateLimiter.js'
 import type { AuthContext } from '../security/types.js'
@@ -67,7 +68,8 @@ export function createWsHandler(server: Server, dependencies: WsDependencies) {
     const connectionId = makeId('ws_conn')
     const connectionAbort = new AbortController()
     const subscriptions = new Map<string, () => void>()
-    const keepalive = setInterval(() => sendWs(ws, push('keepalive', {})), 30_000)
+    const keepalive = setInterval(() => sendProtectedWs(ws, null, push('keepalive', {})), 30_000)
+    let releaseDeliveryGuard = () => {}
     wsConnectionsActive.inc()
     logger.info({ wsConnectionId: connectionId, userId: authContext?.userId ?? null }, 'ws connected')
 
@@ -76,6 +78,7 @@ export function createWsHandler(server: Server, dependencies: WsDependencies) {
       if (cleaned) return
       cleaned = true
       clearInterval(keepalive)
+      releaseDeliveryGuard()
       subscriptions.forEach(unsubscribe => unsubscribe())
       subscriptions.clear()
       clearRunDeliveries(ws)
@@ -96,6 +99,22 @@ export function createWsHandler(server: Server, dependencies: WsDependencies) {
       }
       if (reason === 'error' && ws.readyState !== WebSocket.CLOSED) ws.terminate()
     }
+
+    releaseDeliveryGuard = installWsDeliveryGuard(
+      ws,
+      createWsDeliveryAuthorizer(authContext, dependencies.security, dependencies.store),
+      () => wsAuthNotExpired(authContext),
+      () => {
+        logger.info({
+          event: 'security.ws.delivery.denied',
+          category: 'security',
+          retention: 'operational',
+          wsConnectionId: connectionId,
+          userId: authContext?.userId ?? null,
+        }, '实时推送授权已失效，关闭连接并清理订阅。')
+        cleanup('close')
+      },
+    )
 
     const handleData = async (data: RawData) => {
       for (const line of data.toString().split('\n').filter(Boolean)) {
