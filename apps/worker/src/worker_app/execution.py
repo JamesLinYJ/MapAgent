@@ -373,25 +373,30 @@ class ProcessToolExecutor:
                 )
                 if close_task in done:
                     raise WorkerToolExecutionError("Worker 工具进程池已关闭")
+                # 先收尾竞争失败的等待者，再交付槽位。所有权标记之后
+                # 不允许再 await，否则取消可发生在“已领取、未交付”之间。
+                close_task.cancel()
+                await asyncio.gather(close_task, return_exceptions=True)
                 available = slot_task.result()
                 item_consumed = True
                 if available is not None:
                     return available
             finally:
-                for task in (slot_task, close_task):
-                    if not task.done():
-                        task.cancel()
-                await asyncio.gather(slot_task, close_task, return_exceptions=True)
-                if (
-                    not item_consumed
-                    and not self._closing
-                    and slot_task.done()
-                    and not slot_task.cancelled()
-                    and slot_task.exception() is None
-                ):
-                    # acquire 自身被取消时，queue.get 可能恰好已取得可用槽；
-                    # 必须放回，否则槽仍计入池容量却再也不会被调度。
-                    queue.put_nowait(slot_task.result())
+                if not item_consumed:
+                    for task in (slot_task, close_task):
+                        if not task.done():
+                            task.cancel()
+                    try:
+                        await asyncio.gather(slot_task, close_task, return_exceptions=True)
+                    finally:
+                        if (
+                            not self._closing
+                            and slot_task.done()
+                            and not slot_task.cancelled()
+                            and slot_task.exception() is None
+                        ):
+                            # 清理期间再次取消也必须归还已取得但未交付的槽。
+                            queue.put_nowait(slot_task.result())
 
     async def _spawn_slot(self) -> _ProcessSlot:
         parent_connection, child_connection = self._context.Pipe(duplex=True)

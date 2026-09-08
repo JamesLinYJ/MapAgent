@@ -15,6 +15,7 @@ import { analysisRunSchema, conversationItemSchema } from '../schemas/types.js'
 import { PlatformEventHub } from '../store/platformEventHub.js'
 import {
   clearRunDeliveries,
+  installWsDeliveryAuthorization,
   reserveRunCapture,
   reserveRunDelivery,
   sendRunSnapshot,
@@ -34,6 +35,7 @@ describe('sendWs transport boundary', () => {
       }),
       terminate,
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
 
     expect(() => sendWs(ws, '{}\n')).not.toThrow()
     expect(terminate).toHaveBeenCalledOnce()
@@ -48,6 +50,7 @@ describe('sendWs transport boundary', () => {
       }),
       terminate,
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
 
     expect(() => sendWs(ws, '{}\n')).not.toThrow()
     expect(terminate).toHaveBeenCalledOnce()
@@ -61,6 +64,7 @@ describe('sendWs transport boundary', () => {
       send: vi.fn(),
       terminate,
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
 
     sendWs(ws, '{"type":"run.item.delta"}\n')
 
@@ -68,7 +72,7 @@ describe('sendWs transport boundary', () => {
     expect(terminate).toHaveBeenCalledOnce()
   })
 
-  it('delivers a long reserved linked queue in start order when later work finishes first', () => {
+  it('delivers a long reserved linked queue in start order when later work finishes first', async () => {
     const sent: string[] = []
     const ws = {
       readyState: WebSocket.OPEN,
@@ -79,6 +83,7 @@ describe('sendWs transport boundary', () => {
       }),
       terminate: vi.fn(),
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
     const deliveries = Array.from({ length: 1_000 }, () => reserveRunDelivery(ws, 'run_1'))
 
     for (let index = deliveries.length - 1; index > 0; index -= 1) {
@@ -86,9 +91,10 @@ describe('sendWs transport boundary', () => {
     }
     sendRunWs(ws, 'run_2', '{"type":"run.event"}\n')
 
-    expect(sent.map(message => JSON.parse(message).type)).toEqual(['run.event'])
+    await vi.waitFor(() => expect(sent.map(message => JSON.parse(message).type)).toEqual(['run.event']))
     deliveries[0]?.(JSON.stringify({ type: 'response', sequence: 0 }) + '\n')
     deliveries[0]?.(JSON.stringify({ type: 'duplicate', sequence: 0 }) + '\n')
+    await vi.waitFor(() => expect(sent).toHaveLength(1_001))
     expect(sent.slice(1).map(message => JSON.parse(message).sequence))
       .toEqual(Array.from({ length: 1_000 }, (_, index) => index))
   })
@@ -101,6 +107,7 @@ describe('sendWs transport boundary', () => {
       send: vi.fn(),
       terminate,
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
     const deliverFirst = reserveRunDelivery(ws, 'run_1')
 
     sendRunWs(ws, 'run_1', 'x'.repeat(3 * 1024 * 1024))
@@ -119,6 +126,7 @@ describe('sendWs transport boundary', () => {
       send: vi.fn(),
       terminate,
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
     reserveRunDelivery(ws, 'run_1')
 
     sendRunWs(ws, 'run_1', 'x'.repeat(7 * 1024 * 1024))
@@ -129,7 +137,7 @@ describe('sendWs transport boundary', () => {
     expect(readyState).toBe(WebSocket.CLOSED)
   })
 
-  it('sends full item states and body deltas as distinct correlated pushes', () => {
+  it('sends full item states and body deltas as distinct correlated pushes', async () => {
     const sent: string[] = []
     const ws = {
       readyState: WebSocket.OPEN,
@@ -139,6 +147,7 @@ describe('sendWs transport boundary', () => {
       }),
       terminate: vi.fn(),
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
     const events = new PlatformEventHub()
     const store = {
       getRun: () => ({ id: 'run_1' }),
@@ -160,7 +169,7 @@ describe('sendWs transport boundary', () => {
       sequence: 1, utf16Offset: 0, text: '杭州',
     })
 
-    expect(sent.map(message => JSON.parse(message).type)).toEqual(['run.item', 'run.item.delta'])
+    await vi.waitFor(() => expect(sent.map(message => JSON.parse(message).type)).toEqual(['run.item', 'run.item.delta']))
     expect(JSON.parse(sent[1] ?? '{}').payload.data).toMatchObject({
       streamId: 'stream_1', sequence: 1, utf16Offset: 0, text: '杭州',
     })
@@ -178,6 +187,7 @@ describe('sendWs transport boundary', () => {
       }),
       terminate: vi.fn(),
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
     const run = analysisRunSchema.parse({
       id: 'run_1', sessionId: 'session_1', threadId: 'thread_1', visibility: 'workspace',
       userQuery: '测试', status: 'completed', createdAt: new Date(0).toISOString(),
@@ -230,6 +240,7 @@ describe('sendWs transport boundary', () => {
     expect(calls).toBe(1)
     releaseOldSnapshot()
     await Promise.all([first, second])
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
 
     expect(sent.map(message => JSON.parse(message).payload.data.itemStream.streamId))
       .toEqual(['stream_old', 'stream_new'])
@@ -243,6 +254,7 @@ describe('sendWs transport boundary', () => {
       send: vi.fn((_message: string, callback: (error?: Error) => void) => callback()),
       terminate: vi.fn(() => { readyState = WebSocket.CLOSED }),
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
     const events = new PlatformEventHub()
     const subscriptions = new Map<string, () => void>()
     let releaseFirstCapture!: () => void
@@ -299,6 +311,7 @@ describe('sendWs transport boundary', () => {
       }),
       terminate: vi.fn(),
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
     let releaseCapture!: () => void
     const captureBlocked = new Promise<void>(resolve => { releaseCapture = resolve })
     const capture = reserveRunCapture<string>(ws, 'run_1')
@@ -331,6 +344,7 @@ describe('sendWs transport boundary', () => {
       }),
       terminate,
     } as unknown as WebSocket
+    installWsDeliveryAuthorization(ws, async () => {})
     const store = {
       getRun: () => { throw new Error('must not project a failed snapshot') },
       getThread: () => ({}),

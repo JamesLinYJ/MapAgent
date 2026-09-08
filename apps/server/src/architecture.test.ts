@@ -74,7 +74,7 @@ describe('platform architecture', () => {
       .filter(entry => entry.isDirectory())
       .map(entry => entry.name)
     // 只守卫长期文档事实源；一次性汇报材料不存在时不保留空目录。
-    for (const category of ['architecture', 'operations', 'standards', 'reviews']) {
+    for (const category of ['architecture', 'operations', 'standards']) {
       expect(documentationCategories).toContain(category)
     }
 

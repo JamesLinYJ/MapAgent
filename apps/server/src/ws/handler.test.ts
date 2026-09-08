@@ -136,7 +136,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-bootstrap-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     for (let index = 0; index < 4; index += 1) {
       const thread = await store.createThread(session.id, `线程 ${index + 1}`)
       await store.createRun(session.id, `查询 ${index + 1}`, { threadId: thread.id })
@@ -325,7 +325,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, '订阅测试')
     const run = await store.createRun(session.id, '测试', { threadId: thread.id })
 
@@ -371,7 +371,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-response-barrier-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, '响应因果顺序')
     const run = await store.createRun(session.id, '测试响应与推送顺序', { threadId: thread.id })
     const staleItemSnapshot = await store.listPresentationSnapshot(run.id)
@@ -527,7 +527,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-reserved-fifo-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, '预留槽 FIFO')
     const run = await store.createRun(session.id, '旧推送不得被新响应超车', { threadId: thread.id })
     await store.updateRunStatus(run.id, 'completed')
@@ -714,7 +714,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-decision-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, '决策测试')
     const config = defaultRuntimeConfig()
     config.supervisor.approvalInterruptTools = []
@@ -823,7 +823,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-approval-decision-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, '审批决策测试')
     const config = defaultRuntimeConfig()
     config.supervisor.approvalInterruptTools = ['sensitive_tool']
@@ -907,7 +907,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-tool-items-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, '工具 mini app 回放')
     const registry = new ToolRegistry()
     registry.register(previewToolProvider())
@@ -962,7 +962,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-worker-failure-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, 'Worker 失败传播')
     const registry = new ToolRegistry()
     registry.register(failingWorkerToolProvider())
@@ -1020,7 +1020,7 @@ describe('WebSocket run subscriptions', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-thread-kernel-'))
     const store = createTestPersistenceFacade(root, noOpDb())
     await store.initialize()
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, '连续上下文契约')
     await store.appendTranscript({ threadId: thread.id, kind: 'message', payload: { role: 'user', content: '项目代号是西湖。' } })
     const answer = await store.appendTranscript({ threadId: thread.id, kind: 'message', payload: { role: 'assistant', content: '已记住。' } })
@@ -1088,7 +1088,7 @@ describe('WebSocket run subscriptions', () => {
       revision: 1,
       updatedAt: '2026-08-31T00:00:00.000Z',
     })
-    const session = await store.createSession()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
     const thread = await store.createThread(session.id, '记忆控制面')
     await store.appendTranscript({ threadId: thread.id, runId: 'run_previous', kind: 'message', payload: { role: 'user', content: '历史目标' } })
     await store.appendTranscript({ threadId: thread.id, runId: 'run_previous', kind: 'message', payload: { role: 'assistant', content: '历史结论' } })
@@ -1187,6 +1187,53 @@ describe('WebSocket run subscriptions', () => {
     expect(response.ok).toBe(false)
     expect(isRecord(response.payload) && isRecord(response.payload.error) ? response.payload.error.message : '').toContain('CSRF')
     await close(ws)
+  })
+
+  it.each(['session', 'membership'] as const)('stops existing subscriptions after %s revocation without another inbound command', async revoked => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'geo-ws-revocation-'))
+    const store = createTestPersistenceFacade(root, noOpDb())
+    await store.initialize()
+    const session = await store.createSession({ workspaceId: TEST_AUTH.defaultWorkspaceId, userId: TEST_AUTH.userId })
+    const thread = await store.createThread(session.id, '撤权测试')
+    const run = await store.createRun(session.id, '测试', { threadId: thread.id })
+    let active = true
+    let roles = [...TEST_AUTH.roles]
+    const security = testSecurity()
+    security.auth.isAuthContextActive = async () => active
+    security.auth.listUserRoles = async () => roles
+    security.authorization.can = async (current, _object, _action, scope) => (
+      current.roles.some(role => role.workspaceId === scope?.workspaceId)
+    )
+    const server = createServer((_request, response) => response.end())
+    const wss = createWsHandler(server, {
+      store, toolRegistry: new ToolRegistry(), modelRegistry: new ModelAdapterRegistry(testEnv()),
+      managedLayers: {} as unknown as ManagedLayerService, runtimeRoot: root, security,
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (!address || typeof address === 'string') throw new Error('测试服务未监听 TCP 地址')
+    cleanups.push(async () => {
+      for (const client of wss.clients) client.terminate()
+      await new Promise<void>(resolve => wss.close(() => resolve()))
+      await new Promise<void>(resolve => server.close(() => resolve()))
+      await store.flushConversationStore()
+      await removeTempRoot(root)
+    })
+    const ws = await connect(`ws://127.0.0.1:${address.port}/ws`)
+    cleanups.push(async () => { if (ws.readyState !== WebSocket.CLOSED) await close(ws) })
+    expect((await request(ws, 'run:subscribe', { runId: run.id }, 'run_subscription')).ok).toBe(true)
+    expect((await request(ws, 'thread:subscribe', { threadId: thread.id }, 'thread_subscription')).ok).toBe(true)
+    const messages: string[] = []
+    ws.on('message', data => { messages.push(data.toString()) })
+    await store.appendItem({ ...conversationItem(run.id, thread.id), body: 'before_revocation' })
+    await vi.waitFor(() => expect(messages.some(message => message.includes('before_revocation'))).toBe(true))
+    messages.length = 0
+    if (revoked === 'session') active = false
+    else roles = [{ role: 'viewer', workspaceId: 'other_workspace' }]
+    await store.appendItem({ ...conversationItem(run.id, thread.id), itemId: 'item_after_revocation', body: 'private_after_revocation' })
+    await store.updateThread(thread.id, { title: 'private_after_revocation' })
+    await vi.waitFor(() => expect(ws.readyState).toBe(WebSocket.CLOSED))
+    expect(messages.some(message => message.includes('private_after_revocation'))).toBe(false)
   })
 
   it('rejects read-type WS commands when auth context is inactive', async () => {

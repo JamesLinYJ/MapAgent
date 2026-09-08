@@ -24,7 +24,8 @@ import {
   success,
   type ClientMsg,
 } from './protocol.js'
-import { clearRunDeliveries, sendWs } from './subscriptions.js'
+import { clearRunDeliveries, installWsDeliveryAuthorization, sendWs } from './subscriptions.js'
+import { createWsDeliveryAuthorizer } from './deliveryAuthorization.js'
 import type { SecurityServices } from '../security/routes.js'
 import { WsMessageRateLimiter } from '../security/rateLimiter.js'
 import type { AuthContext } from '../security/types.js'
@@ -67,7 +68,12 @@ export function createWsHandler(server: Server, dependencies: WsDependencies) {
     const connectionId = makeId('ws_conn')
     const connectionAbort = new AbortController()
     const subscriptions = new Map<string, () => void>()
-    const keepalive = setInterval(() => sendWs(ws, push('keepalive', {})), 30_000)
+    installWsDeliveryAuthorization(ws, createWsDeliveryAuthorizer({
+      auth: authContext ?? null,
+      security: dependencies.security,
+      store: dependencies.store,
+    }))
+    const keepalive = setInterval(() => sendWs(ws, push('keepalive', {}), { object: 'connection' }), 30_000)
     wsConnectionsActive.inc()
     logger.info({ wsConnectionId: connectionId, userId: authContext?.userId ?? null }, 'ws connected')
 
