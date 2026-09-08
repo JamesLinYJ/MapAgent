@@ -35,6 +35,7 @@ const packageSchema = z.object({
   engines: z.object({ node: z.string() }),
   scripts: z.record(z.string(), z.string()),
   devDependencies: z.record(z.string(), z.string()).optional(),
+  optionalDependencies: z.record(z.string(), z.string()).optional(),
 })
 
 describe('desktop packaging contract', () => {
@@ -74,7 +75,9 @@ describe('desktop packaging contract', () => {
       'node scripts/apply-repository-governance.mjs',
     )
     expect(desktopPackage.devDependencies?.['@electron-forge/maker-base']).toBe('7.11.2')
-    expect(desktopPackage.devDependencies?.['electron-installer-redhat']).toBe('3.4.0')
+    // RPM tooling cannot be a required install on Windows.
+    expect(desktopPackage.optionalDependencies?.['electron-installer-redhat']).toBe('3.4.0')
+    expect(desktopPackage.devDependencies?.['electron-installer-redhat']).toBeUndefined()
     expect(desktopPackage.devDependencies?.['@electron-forge/maker-rpm']).toBeUndefined()
     expect(desktopPackage.devDependencies?.['@electron-forge/maker-zip']).toBeUndefined()
 
