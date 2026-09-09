@@ -83,3 +83,31 @@ function isMaintainedScript(name) {
   return ['.bat', '.cmd', '.cjs', '.js', '.mjs', '.ps1', '.py', '.sh', '.ts']
     .includes(path.extname(name))
 }
+
+// 2026-09-08 / OpenAI ChatGPT: platform-only makers must not prevent a clean
+// Windows workspace install. RPM execution already has a lazy platform guard.
+test('platform-specific RPM installer stays optional in the manifest and lockfile', async () => {
+  const [desktop, lock] = await Promise.all([
+    readJson('apps/desktop/package.json'),
+    readJson('package-lock.json'),
+  ])
+  const installer = 'electron-installer-redhat'
+  const version = desktop.optionalDependencies?.[installer]
+  assert.match(version ?? '', /^\d+\.\d+\.\d+$/u)
+  assert.equal(desktop.dependencies?.[installer], undefined)
+  assert.equal(desktop.devDependencies?.[installer], undefined)
+  assert.equal(lock.packages['apps/desktop'].optionalDependencies?.[installer], version)
+  assert.equal(lock.packages[`node_modules/${installer}`].version, version)
+  assert.equal(lock.packages[`node_modules/${installer}`].optional, true)
+
+  // Do not repair one direct declaration while leaving another required,
+  // platform-restricted package to make `npm ci` fail on Windows.
+  for (const [name, entry] of Object.entries(lock.packages)) {
+    const platforms = entry.os
+    if (!Array.isArray(platforms)) continue
+    const allowed = platforms.filter(platform => !platform.startsWith('!'))
+    const excludesWindows = platforms.includes('!win32')
+      || (allowed.length > 0 && !allowed.includes('win32'))
+    if (excludesWindows) assert.equal(entry.optional, true, `${name} must be optional on Windows`)
+  }
+})

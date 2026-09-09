@@ -15,6 +15,7 @@
 // 应用事件总线；WebSocket 只负责把已持久化或已发布的事件转成协议消息。
 
 import { WebSocket } from 'ws'
+import { WsDeliveryGate, type WsDeliveryAuthorize, type WsDeliveryScope } from './WsDeliveryGate.js'
 
 import type {
   AnalysisRun,
@@ -36,6 +37,7 @@ const MAX_QUEUED_RUN_DELIVERY_BYTES = MAX_WS_BUFFERED_BYTES
 const MAX_QUEUED_RUN_DELIVERY_SLOTS = 4_096
 const runDeliveryStates = new WeakMap<WebSocket, RunDeliveryState>()
 const runCaptureStates = new WeakMap<WebSocket, Map<string, RunCaptureQueue>>()
+const deliveryGates = new WeakMap<WebSocket, WsDeliveryGate>()
 
 interface RunDeliveryState {
   queuedBytes: number
@@ -132,11 +134,11 @@ export function subscribeToThread(
   store.getThread(threadId)
   const key = `thread:${threadId}`
   if (subscriptions.has(key)) return
-  const unsubscribeEntry = events.threadEntries.subscribe(threadId, entry => sendWs(ws, push('thread.entry', entry)))
-  const unsubscribeUpdate = events.threadUpdates.subscribe(threadId, update => sendWs(ws, push('thread.updated', update)))
-  const unsubscribeCompact = events.threadCompactions.subscribe(threadId, record => sendWs(ws, push('thread.compacted', record)))
-  const unsubscribeMemory = events.threadMemories.subscribe(threadId, memory => sendWs(ws, push('thread.memory.updated', memory)))
-  const unsubscribeMapScene = events.mapScenes.subscribe(threadId, scene => sendWs(ws, push('map.scene.updated', scene)))
+  const unsubscribeEntry = events.threadEntries.subscribe(threadId, entry => sendWs(ws, push('thread.entry', entry), { object: 'thread', resourceId: threadId }))
+  const unsubscribeUpdate = events.threadUpdates.subscribe(threadId, update => sendWs(ws, push('thread.updated', update), { object: 'thread', resourceId: threadId }))
+  const unsubscribeCompact = events.threadCompactions.subscribe(threadId, record => sendWs(ws, push('thread.compacted', record), { object: 'thread', resourceId: threadId }))
+  const unsubscribeMemory = events.threadMemories.subscribe(threadId, memory => sendWs(ws, push('thread.memory.updated', memory), { object: 'thread', resourceId: threadId }))
+  const unsubscribeMapScene = events.mapScenes.subscribe(threadId, scene => sendWs(ws, push('map.scene.updated', scene), { object: 'thread', resourceId: threadId }))
   subscriptions.set(key, () => {
     unsubscribeEntry()
     unsubscribeUpdate()
@@ -325,7 +327,7 @@ export function reserveRunDelivery(ws: WebSocket, runId: string): (message: stri
     if (currentState !== state || state.queues.get(runId) !== queue) return
     const byteLength = Buffer.byteLength(message, 'utf8')
     const socketBufferedBytes = ws.bufferedAmount ?? 0
-    if (socketBufferedBytes + state.queuedBytes + byteLength > MAX_QUEUED_RUN_DELIVERY_BYTES) {
+    if (socketBufferedBytes + state.queuedBytes + pendingAuthorizationBytes(ws) + byteLength > MAX_QUEUED_RUN_DELIVERY_BYTES) {
       logger.warn({ queuedBytes: state.queuedBytes, socketBufferedBytes, runId }, 'run delivery buffer exceeded')
       terminateConnection(ws)
       return
@@ -363,7 +365,7 @@ function drainRunDelivery(
       slot.next = null
       state.queuedBytes -= message.byteLength
       state.slotCount -= 1
-      sendWs(ws, message.body)
+      sendWs(ws, message.body, { object: 'run', resourceId: runId })
     }
   } finally {
     queue.draining = false
@@ -373,16 +375,53 @@ function drainRunDelivery(
   }
 }
 
-export function sendWs(ws: WebSocket, message: string): void {
+export function installWsDeliveryAuthorization(ws: WebSocket, authorize: WsDeliveryAuthorize): void {
+  if (deliveryGates.has(ws)) throw new Error('WebSocket 出站授权不能重复安装。')
+  deliveryGates.set(ws, new WsDeliveryGate(
+    authorize,
+    message => sendImmediately(ws, message),
+    error => {
+      logger.warn({ error: errorLogPayload(error) }, 'ws delivery authorization failed')
+      terminateConnection(ws)
+    },
+  ))
+}
+
+function pendingAuthorizationBytes(ws: WebSocket): number {
+  return deliveryGates.get(ws)?.queuedBytes ?? 0
+}
+
+export function sendWs(ws: WebSocket, message: string, scope?: WsDeliveryScope): void {
   if (ws.readyState !== WebSocket.OPEN) return
+  const gate = deliveryGates.get(ws)
+  if (scope) {
+    if (!gate) {
+      logger.warn({}, 'ws scoped delivery has no authorization gate')
+      terminateConnection(ws)
+      return
+    }
+    if (!withinSendBudget(ws, message)) return
+    gate.enqueue(message, scope)
+    return
+  }
+  // 普通命令响应由命令入口鉴权；失效会话的错误回复不含订阅内容，仍可交付。
+  sendImmediately(ws, message)
+}
+
+function withinSendBudget(ws: WebSocket, message: string): boolean {
   const bufferedAmount = ws.bufferedAmount ?? 0
   const queuedRunBytes = runDeliveryStates.get(ws)?.queuedBytes ?? 0
   const byteLength = Buffer.byteLength(message, 'utf8')
-  if (bufferedAmount + queuedRunBytes + byteLength > MAX_WS_BUFFERED_BYTES) {
+  if (bufferedAmount + queuedRunBytes + pendingAuthorizationBytes(ws) + byteLength > MAX_WS_BUFFERED_BYTES) {
     logger.warn({ bufferedAmount, queuedRunBytes }, 'ws send buffer exceeded')
     terminateConnection(ws)
-    return
+    return false
   }
+  return true
+}
+
+function sendImmediately(ws: WebSocket, message: string): void {
+  if (ws.readyState !== WebSocket.OPEN || !withinSendBudget(ws, message)) return
   try {
     ws.send(message, error => {
       if (!error) return
@@ -396,6 +435,8 @@ export function sendWs(ws: WebSocket, message: string): void {
 }
 
 export function clearRunDeliveries(ws: WebSocket): void {
+  // 保留已关闭 gate 的弱引用，迟到的异步回调不能退回未经授权的发送路径。
+  deliveryGates.get(ws)?.dispose()
   const state = runDeliveryStates.get(ws)
   if (state) {
     for (const queue of state.queues.values()) {

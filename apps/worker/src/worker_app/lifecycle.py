@@ -32,6 +32,10 @@ class LifecycleStoreError(RuntimeError):
     """生命周期共享存储不可用。"""
 
 
+class NonceStoreFullError(LifecycleStoreError):
+    """有效期内的 nonce 已占满容量，必须拒绝新请求而不是遗忘旧请求。"""
+
+
 def _connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path, timeout=5.0)
@@ -82,14 +86,10 @@ class SqliteNonceStore:
                     connection.rollback()
                     return False
                 count = int(connection.execute("SELECT COUNT(*) FROM worker_nonces").fetchone()[0])
-                overflow = count - max(0, max_entries - 1)
-                if overflow > 0:
-                    connection.execute(
-                        "DELETE FROM worker_nonces WHERE nonce IN ("
-                        "SELECT nonce FROM worker_nonces ORDER BY expires_at ASC LIMIT ?"
-                        ")",
-                        (overflow,),
-                    )
+                # 已验签请求在整个有效期内必须只能使用一次。容量限制不能
+                # 淘汰未过期 nonce，否则其原始签名仍有效，重放会再次通过。
+                if count >= max_entries:
+                    raise NonceStoreFullError("Worker nonce 存储已满")
                 connection.execute(
                     "INSERT INTO worker_nonces(nonce, expires_at) VALUES (?, ?)",
                     (nonce, expires_at),

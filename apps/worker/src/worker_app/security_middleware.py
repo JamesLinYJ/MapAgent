@@ -13,11 +13,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Protocol
 from uuid import uuid4
 
 from starlette.datastructures import Headers
+from starlette.requests import ClientDisconnect
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -74,7 +76,11 @@ class WorkerSecurityMiddleware:
             await _send_json(scope, receive, send, 413, "Worker 请求体超过大小限制")
             return
 
-        body = await _read_bounded_body(receive, self.max_body_bytes)
+        try:
+            body = await _read_bounded_body(receive, self.max_body_bytes)
+        except ClientDisconnect:
+            # 不完整请求即使碰巧构成合法 JSON 也不能认证或进入执行队列。
+            return
         if body is None:
             self.logger.warning(
                 "Worker 请求体超过大小限制",
@@ -94,12 +100,40 @@ class WorkerSecurityMiddleware:
             await _send_json(scope, receive, send, status_code, detail)
             return
 
-        replay_receive = _body_receiver(body)
-        lease = await self.concurrency_limiter.acquire()
+        disconnected = asyncio.Event()
+        replay_receive = _body_receiver(body, disconnected)
+
+        async def watch_disconnect() -> None:
+            # 请求体已读完；此任务是原始 ASGI receive 的唯一消费者，避免
+            # 下游读取与断开监视器争抢 http.disconnect。
+            while True:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    disconnected.set()
+                    return
+
+        async def serve_request() -> None:
+            if disconnected.is_set():
+                return
+            lease = await self.concurrency_limiter.acquire()
+            try:
+                if not disconnected.is_set():
+                    await self.app(scope, replay_receive, send)
+            finally:
+                await self.concurrency_limiter.release(lease)
+
+        monitor = asyncio.create_task(watch_disconnect())
+        request_task = asyncio.create_task(serve_request())
         try:
-            await self.app(scope, replay_receive, send)
+            done, _ = await asyncio.wait(
+                (monitor, request_task), return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in done:
+                task.result()
         finally:
-            await self.concurrency_limiter.release(lease)
+            # 单次取消贯穿并发排队和科学计算。等执行器回收子进程、释放
+            # 租约后才退出；不能再次 cancel 正在执行 finally 的请求任务。
+            await _cancel_and_drain(monitor, request_task)
 
 
 def worker_auth_target(path: str) -> str:
@@ -127,7 +161,7 @@ async def _read_bounded_body(receive: Receive, limit: int) -> bytes | None:
     while more_body:
         message = await receive()
         if message["type"] == "http.disconnect":
-            return bytes(chunks)
+            raise ClientDisconnect()
         if message["type"] != "http.request":
             continue
         chunks.extend(message.get("body", b""))
@@ -137,17 +171,37 @@ async def _read_bounded_body(receive: Receive, limit: int) -> bytes | None:
     return bytes(chunks)
 
 
-def _body_receiver(body: bytes) -> Receive:
+def _body_receiver(body: bytes, disconnected: asyncio.Event) -> Receive:
     delivered = False
 
     async def receive() -> Message:
         nonlocal delivered
         if delivered:
-            return {"type": "http.request", "body": b"", "more_body": False}
+            await disconnected.wait()
+            return {"type": "http.disconnect"}
         delivered = True
         return {"type": "http.request", "body": body, "more_body": False}
 
     return receive
+
+
+async def _cancel_and_drain(*tasks: asyncio.Task[None]) -> None:
+    for task in tasks:
+        if not task.done() and not task.cancelling():
+            task.cancel()
+    cleanup = asyncio.gather(*tasks, return_exceptions=True)
+    cancelled = False
+    while not cleanup.done():
+        try:
+            await asyncio.shield(cleanup)
+        except asyncio.CancelledError:
+            # 服务器关闭或第二次取消也不能打断正在回收的执行器。
+            cancelled = True
+    for result in cleanup.result():
+        if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+            raise result
+    if cancelled:
+        raise asyncio.CancelledError()
 
 
 async def _send_json(
